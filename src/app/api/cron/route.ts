@@ -3,6 +3,7 @@ import { createAdminClient } from '@/utils/supabase/admin'
 import { calculateResidentDues, MONTH_NAMES } from '@/lib/dues'
 import {
   sendTelegramMessage,
+  formatBillCreatedMessage,
   formatHMinus5Message,
   formatDueDateMessage,
   formatOverdueMessage,
@@ -117,8 +118,20 @@ export async function GET(request: Request) {
     }
 
     // Check Stage:
+    // NEW BILL JUST CREATED (highest priority — check once per period)
+    const alreadyNotifiedCreated = allLogs?.find(l =>
+      l.profile_id === warga.id &&
+      l.notification_type === 'BILL_CREATED' &&
+      l.period_month === currentMonth &&
+      l.period_year === currentYear &&
+      l.status === 'SENT'
+    )
+    if (currentBill && currentBill.status !== 'PAID' && !alreadyNotifiedCreated) {
+      notificationType = 'BILL_CREATED'
+      messageText = formatBillCreatedMessage(warga.full_name, monthName, currentYear, Number(currentBill.total_amount || 0))
+    }
     // H-5 (Date 5 of month)
-    if (currentDateNum === 5 && currentBill && currentBill.status !== 'PAID') {
+    else if (currentDateNum === 5 && currentBill && currentBill.status !== 'PAID') {
       notificationType = 'H_MINUS_5'
       messageText = formatHMinus5Message(warga.full_name, monthName, currentYear, Number(currentBill.total_amount || 0), `10 ${monthName} ${currentYear}`)
     }

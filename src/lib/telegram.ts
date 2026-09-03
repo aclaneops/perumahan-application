@@ -32,6 +32,10 @@ export async function sendTelegramMessage(chatId: string, text: string) {
   }
 }
 
+export function formatBillCreatedMessage(name: string, monthName: string, year: number, amount: number) {
+  return `Halo Pak/Bu <b>${name}</b> 👋\n\nTagihan iuran warga bulan <b>${monthName} ${year}</b> telah terbit:\n<b>Rp ${amount.toLocaleString('id-ID')}</b>\n\nSilakan cek rincian dan lakukan pembayaran melalui aplikasi. Terima kasih. 🙏`
+}
+
 export function formatHMinus5Message(name: string, monthName: string, year: number, amount: number, dueDateStr: string) {
   return `Halo Pak/Bu <b>${name}</b> 👋\n\nMengingatkan bahwa iuran warga bulan <b>${monthName} ${year}</b> sebesar:\n<b>Rp ${amount.toLocaleString('id-ID')}</b>\n\nakan jatuh tempo pada:\n<b>${dueDateStr}</b>.\n\nTerima kasih. 🙏`
 }

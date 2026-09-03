@@ -46,6 +46,7 @@ export default async function ManageWargaPage() {
           <Link href="/admin/dashboard" className="block px-4 py-3 rounded-lg text-slate-300 hover:bg-slate-800 transition">Dasbor Utama</Link>
           <Link href="/admin/tunggakan" className="block px-4 py-3 rounded-lg text-slate-300 hover:bg-slate-800 transition">Kelola Tunggakan</Link>
           <Link href="/admin/warga" className="block px-4 py-3 rounded-lg bg-blue-600 text-white font-medium">Kelola Warga</Link>
+          <Link href="/admin/pengaturan" className="block px-4 py-3 rounded-lg text-slate-300 hover:bg-slate-800 transition">Pengaturan Tagihan</Link>
           <Link href="/admin/notifikasi" className="block px-4 py-3 rounded-lg text-slate-300 hover:bg-slate-800 transition">Log Notifikasi</Link>
         </nav>
         <div className="p-4 border-t border-slate-700">

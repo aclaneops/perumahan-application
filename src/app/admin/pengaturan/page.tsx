@@ -5,7 +5,11 @@ import Link from 'next/link'
 
 export const dynamic = 'force-dynamic'
 
-export default async function PengaturanPage() {
+export default async function PengaturanPage({
+  searchParams
+}: {
+  searchParams: { success?: string; error?: string; sent?: string }
+}) {
   const supabase = createClient()
   const adminClient = createAdminClient()
   
@@ -65,6 +69,19 @@ export default async function PengaturanPage() {
           <h1 className="text-3xl font-bold text-slate-800">Pengaturan Tagihan</h1>
           <p className="text-slate-500 mt-2">Atur nominal tagihan default untuk bulan ini.</p>
         </header>
+
+        {searchParams?.success && (
+          <div className="mb-6 bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-lg">
+            {searchParams?.sent !== undefined
+              ? `Tagihan berhasil diproses. ${searchParams.sent} notifikasi Telegram terkirim.`
+              : 'Perubahan berhasil disimpan.'}
+          </div>
+        )}
+        {searchParams?.error && (
+          <div className="mb-6 bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg">
+            Gagal menyimpan: {decodeURIComponent(searchParams.error)}
+          </div>
+        )}
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Form Edit Biaya */}
