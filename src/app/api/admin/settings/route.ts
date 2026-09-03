@@ -19,11 +19,19 @@ export async function POST(request: Request) {
     const water = Number(formData.get('water'))
     const treasury = Number(formData.get('treasury'))
 
-    await adminClient.from('settings').upsert({
+    const { error: settingsError } = await adminClient.from('settings').upsert({
       id: 'billing_fees',
       value: { security, trash, water, treasury }
     })
-    
+
+    if (settingsError) {
+      console.error('Failed to update fees:', settingsError)
+      return NextResponse.redirect(
+        new URL(`/admin/pengaturan?error=${encodeURIComponent(settingsError.message)}`, request.url),
+        { status: 302 }
+      )
+    }
+
     return NextResponse.redirect(new URL('/admin/pengaturan?success=1', request.url), { status: 302 })
   }
   
@@ -48,10 +56,11 @@ export async function POST(request: Request) {
 
     console.log('Profiles for billing:', profiles, profilesError)
 
-    if (profiles) {
+    if (profiles && profiles.length > 0) {
       // Create bills for all
       const newBills = profiles.map(p => ({
         profile_id: p.id,
+        user_id: p.id, // required NOT NULL column, was missing before
         period_month: month,
         period_year: year,
         water_fee: fees.water,
@@ -61,8 +70,15 @@ export async function POST(request: Request) {
         status: 'UNPAID'
       }))
 
-      // Ignore duplicates if there's a unique constraint on (user_id, period_month, period_year)
-      await adminClient.from('bills').insert(newBills)
+      // Upsert + ignoreDuplicates so clicking this twice for the same month never errors out
+      const { error: billsError } = await adminClient
+        .from('bills')
+        .upsert(newBills, { onConflict: 'profile_id,period_month,period_year', ignoreDuplicates: true })
+
+      if (billsError) {
+        console.error('Failed to generate bills:', billsError)
+        return NextResponse.redirect(new URL('/admin/pengaturan?error=1', request.url), { status: 302 })
+      }
     }
 
     return NextResponse.redirect(new URL('/admin/dashboard?success=1', request.url), { status: 302 })
