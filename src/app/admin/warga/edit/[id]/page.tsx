@@ -30,6 +30,9 @@ export default async function EditWargaPage({ params }: { params: { id: string }
     redirect('/admin/warga')
   }
 
+  const { data: authUser } = await adminClient.auth.admin.getUserById(params.id)
+  const email = authUser?.user?.email || ''
+
   return (
     <div className="min-h-screen bg-slate-50 flex">
       <aside className="w-64 bg-slate-900 text-white flex flex-col">
@@ -79,6 +82,16 @@ export default async function EditWargaPage({ params }: { params: { id: string }
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-slate-700 mb-2">Nomor WhatsApp</label>
                 <input type="text" name="phone_number" defaultValue={warga.phone_number || ''} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-lg" />
+              </div>
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-slate-700 mb-2">Email Akun (Login)</label>
+                <input type="email" name="email" defaultValue={email} required className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-lg" />
+                <p className="text-xs text-slate-500 mt-1">Ubah email ini jika terjadi salah ketik (typo) saat pembuatan akun.</p>
+              </div>
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-slate-700 mb-2">Password Baru (Opsional)</label>
+                <input type="text" name="password" placeholder="Biarkan kosong jika tidak ingin mengubah password" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-lg" />
+                <p className="text-xs text-slate-500 mt-1">Isi jika warga lupa password lamanya. Minimal 6 karakter.</p>
               </div>
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-slate-700 mb-2">Jabatan</label>
