@@ -62,6 +62,8 @@ export default async function NotifikasiPage() {
           <Link href="/admin/warga" className="block px-4 py-3 rounded-lg text-slate-300 hover:bg-slate-800 transition">Kelola Warga</Link>
           <Link href="/admin/pengaturan" className="block px-4 py-3 rounded-lg text-slate-300 hover:bg-slate-800 transition">Pengaturan Tagihan</Link>
           <Link href="/admin/notifikasi" className="block px-4 py-3 rounded-lg bg-blue-600 text-white font-medium">Log Notifikasi</Link>
+          <Link href="/admin/keuangan" className="block px-4 py-3 rounded-lg text-slate-300 hover:bg-slate-800 transition">Pembukuan</Link>
+          <Link href="/admin/laporan" className="block px-4 py-3 rounded-lg text-slate-300 hover:bg-slate-800 transition">Laporan Bulanan</Link>
         </nav>
         <div className="p-4 border-t border-slate-700">
           <form action="/api/auth/signout" method="post">
