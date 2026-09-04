@@ -57,6 +57,14 @@ export function formatPaymentConfirmedMessage(name: string, monthName: string, y
   return `Halo Pak/Bu <b>${name}</b> 👋\n\nPembayaran iuran telah berhasil dicatat & divalidasi.\n\nPeriode: <b>${monthName} ${year}</b>\nNominal: <b>Rp ${amount.toLocaleString('id-ID')}</b>\nTanggal: <b>${dateStr}</b>\nStatus: <b>✅ LUNAS</b>\n\nTerima kasih atas partisipasinya! 🙏`
 }
 
+export function formatPaymentRejectedMessage(name: string, monthName: string, year: number) {
+  return `Halo Pak/Bu <b>${name}</b> 👋\n\nMohon maaf, bukti pembayaran iuran periode <b>${monthName} ${year}</b> yang Anda kirim <b>belum dapat divalidasi</b> oleh admin.\n\nSilakan cek kembali bukti transfer dan upload ulang, atau hubungi pengurus perumahan untuk info lebih lanjut. Terima kasih 🙏`
+}
+
+export function formatNewPaymentSubmittedMessage(name: string, houseNumber: string, monthName: string, year: number, amount: number) {
+  return `📥 <b>Bukti Pembayaran Baru</b>\n\nWarga: <b>${name}</b> (${houseNumber})\nPeriode: <b>${monthName} ${year}</b>\nNominal: <b>Rp ${amount.toLocaleString('id-ID')}</b>\n\nMohon segera dicek & divalidasi di panel admin.`
+}
+
 export function formatAdminSummaryReportMessage(monthName: string, year: number, stats: {
   totalWarga: number
   sudahBayar: number

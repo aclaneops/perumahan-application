@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/utils/supabase/admin'
 import { createClient } from '@/utils/supabase/server'
+import { sendTelegramMessage, formatNewPaymentSubmittedMessage } from '@/lib/telegram'
+import { MONTH_NAMES } from '@/lib/dues'
 
 export async function POST(request: Request) {
   const supabase = createClient()
@@ -44,7 +46,7 @@ export async function POST(request: Request) {
     // Fetch the bill for reference
     const { data: bill } = await adminClient
       .from('bills')
-      .select('total_amount')
+      .select('total_amount, period_month, period_year')
       .eq('id', billId)
       .single()
 
@@ -98,6 +100,26 @@ export async function POST(request: Request) {
       .from('bills')
       .update({ status: 'PENDING_CONFIRMATION' })
       .eq('id', billId)
+
+    // Notify admin via Telegram
+    const adminChatId = process.env.TELEGRAM_ADMIN_CHAT_ID
+    if (adminChatId) {
+      const { data: profile } = await adminClient
+        .from('profiles')
+        .select('full_name, house_number')
+        .eq('id', user.id)
+        .maybeSingle()
+
+      const monthName = bill?.period_month ? (MONTH_NAMES[bill.period_month - 1] || `Bulan ${bill.period_month}`) : '-'
+      const msg = formatNewPaymentSubmittedMessage(
+        profile?.full_name || 'Warga',
+        profile?.house_number || '-',
+        monthName,
+        bill?.period_year || new Date().getFullYear(),
+        Number(amountPaid) || Number(bill?.total_amount) || 0
+      )
+      await sendTelegramMessage(adminChatId, msg)
+    }
 
     return NextResponse.json({ success: true, url: publicUrl })
   } catch (error: any) {
