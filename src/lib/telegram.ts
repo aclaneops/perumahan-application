@@ -65,6 +65,10 @@ export function formatNewPaymentSubmittedMessage(name: string, houseNumber: stri
   return `📥 <b>Bukti Pembayaran Baru</b>\n\nWarga: <b>${name}</b> (${houseNumber})\nPeriode: <b>${monthName} ${year}</b>\nNominal: <b>Rp ${amount.toLocaleString('id-ID')}</b>\n\nMohon segera dicek & divalidasi di panel admin.`
 }
 
+export function formatPaymentAutoValidatedMessage(name: string, houseNumber: string, monthName: string, year: number, amount: number) {
+  return `✅ <b>Pembayaran Tervalidasi Otomatis</b>\n\nWarga: <b>${name}</b> (${houseNumber})\nPeriode: <b>${monthName} ${year}</b>\nNominal: <b>Rp ${amount.toLocaleString('id-ID')}</b>\nStatus: <b>LUNAS</b>\n\n📌 Pembayaran telah sesuai tagihan dan divalidasi otomatis oleh sistem setelah 15 menit.`
+}
+
 export function formatAdminSummaryReportMessage(monthName: string, year: number, stats: {
   totalWarga: number
   sudahBayar: number

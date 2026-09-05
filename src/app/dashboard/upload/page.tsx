@@ -9,11 +9,50 @@ function UploadForm() {
   const [amountPaid, setAmountPaid] = useState('')
   const [file, setFile] = useState<File | null>(null)
   const [uploading, setUploading] = useState(false)
+  const [scanning, setScanning] = useState(false)
+  const [ocrMessage, setOcrMessage] = useState('')
   const [error, setError] = useState('')
   const router = useRouter()
   const searchParams = useSearchParams()
   const billId = searchParams.get('billId')
   const totalParam = searchParams.get('total')
+
+  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const selectedFile = e.target.files?.[0] || null
+    setFile(selectedFile)
+    
+    if (selectedFile) {
+      setScanning(true)
+      setOcrMessage('Mendeteksi nominal transfer...')
+      try {
+        const formData = new FormData()
+        formData.append('file', selectedFile)
+        
+        const res = await fetch('/api/ocr', {
+          method: 'POST',
+          body: formData
+        })
+        
+        if (res.ok) {
+          const data = await res.json()
+          if (data.nominal && data.nominal > 0) {
+            setAmountPaid(data.nominal.toString())
+            setOcrMessage(`Nominal terdeteksi otomatis: Rp ${data.nominal.toLocaleString('id-ID')}`)
+            setTimeout(() => setOcrMessage(''), 5000)
+          } else {
+            setOcrMessage('Gagal mendeteksi nominal. Silakan isi manual.')
+          }
+        } else {
+          setOcrMessage('Gagal membaca gambar. Silakan isi manual.')
+        }
+      } catch (err) {
+        console.error(err)
+        setOcrMessage('Terjadi kesalahan saat memproses gambar.')
+      } finally {
+        setScanning(false)
+      }
+    }
+  }
 
   async function handleUpload(e: React.FormEvent) {
     e.preventDefault()
@@ -63,6 +102,12 @@ function UploadForm() {
         </div>
       )}
 
+      {ocrMessage && (
+        <div className={`p-4 rounded-lg mb-6 border text-sm ${ocrMessage.includes('Gagal') || ocrMessage.includes('kesalahan') ? 'bg-orange-50 text-orange-600 border-orange-100' : 'bg-green-50 text-green-600 border-green-100'}`}>
+          {ocrMessage}
+        </div>
+      )}
+
       <form onSubmit={handleUpload} className="space-y-6">
         <div>
           <label className="block text-sm font-medium text-slate-700 mb-2">Nominal Transfer (Rp)</label>
@@ -80,11 +125,16 @@ function UploadForm() {
           <input 
             type="file" 
             accept="image/*,application/pdf"
-            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-            onChange={(e) => setFile(e.target.files?.[0] || null)}
+            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
+            onChange={handleFileChange}
+            disabled={scanning}
             required
           />
-          {file ? (
+          {scanning ? (
+            <div className="text-blue-600 font-medium">
+              ⏳ Memproses gambar...
+            </div>
+          ) : file ? (
             <div className="text-green-600 font-medium overflow-hidden text-ellipsis whitespace-nowrap">
               ✅ {file.name}
             </div>

@@ -101,6 +101,26 @@ export async function POST(request: Request) {
       .update({ status: 'PENDING_CONFIRMATION' })
       .eq('id', billId)
 
+    // Handle Overpayment Logging to Transactions
+    const numericAmountPaid = Number(amountPaid) || 0
+    if (bill && numericAmountPaid > bill.total_amount) {
+      const excess = numericAmountPaid - bill.total_amount
+      
+      const { data: profileData } = await adminClient
+        .from('profiles')
+        .select('full_name, house_number')
+        .eq('id', user.id)
+        .maybeSingle()
+        
+      await adminClient.from('transactions').insert({
+        type: 'INCOME',
+        category: 'Lebih Bayar Tagihan',
+        amount: excess,
+        description: `Kelebihan bayar tagihan bulan ${bill.period_month} tahun ${bill.period_year} dari warga ${profileData?.full_name || 'warga'} (${profileData?.house_number || '-'})`,
+        created_by: user.id
+      })
+    }
+
     // Notify admin via Telegram
     const adminChatId = process.env.TELEGRAM_ADMIN_CHAT_ID
     if (adminChatId) {
