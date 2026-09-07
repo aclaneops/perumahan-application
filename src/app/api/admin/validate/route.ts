@@ -73,8 +73,6 @@ export async function POST(request: Request) {
             await adminClient.from('bills').update({ status: 'PAID' }).eq('id', unpaid.id)
             await adminClient.from('payments').insert({
               bill_id: unpaid.id,
-              profile_id: profileId,
-              user_id: profileId,
               amount: unpaidTotal,
               proof_url: payment?.proof_url || payment?.payment_proof_url,
               validated_by: user.id,

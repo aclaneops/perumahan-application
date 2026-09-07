@@ -228,7 +228,6 @@ export async function GET(request: Request) {
             // Duplicate the payment record to link it to this bill for historical accuracy
             await adminClient.from('payments').insert({
               bill_id: unpaid.id,
-              profile_id: profileId,
               amount: unpaidTotal,
               proof_url: payment.proof_url
             })

@@ -37,7 +37,7 @@ export default async function AdminDashboard({ searchParams }: { searchParams: {
     adminClient.from('profiles').select('id, full_name, house_number, role').limit(5000),
     adminClient.from('bills').select('id, total_amount, status').eq('period_month', currentMonth).eq('period_year', currentYear).limit(5000),
     adminClient.from('bills').select('id, profile_id, user_id, status, period_month, period_year, total_amount').neq('status', 'PAID').limit(10000),
-    adminClient.from('payments').select('*').is('validated_by', null).is('confirmed_by', null).order('created_at', { ascending: false }).limit(5000)
+    adminClient.from('payments').select('*').is('validated_by', null).order('created_at', { ascending: false }).limit(5000)
   ])
 
   const wargaProfiles = allProfiles?.filter(p => p.role === 'user') || []
@@ -144,16 +144,18 @@ export default async function AdminDashboard({ searchParams }: { searchParams: {
       )[0]
       const proofUrl = payment?.payment_proof_url || payment?.proof_url || payment?.proofUrl
 
-      pendingValidations.push({
-        billId: bill.id,
-        paymentId: payment?.id || null,
-        name: pProfile?.full_name || 'Warga (Tidak diketahui)',
-        house: pProfile?.house_number || '-',
-        amount: payment?.amount || bill.total_amount,
-        totalBill: bill.total_amount,
-        proofUrl: proofUrl || null,
-        date: payment?.created_at || payment?.paid_at || bill.updated_at || bill.created_at
-      })
+      if (payment) {
+        pendingValidations.push({
+          billId: bill.id,
+          paymentId: payment.id,
+          name: pProfile?.full_name || 'Warga (Tidak diketahui)',
+          house: pProfile?.house_number || '-',
+          amount: payment.amount || bill.total_amount,
+          totalBill: bill.total_amount,
+          proofUrl: proofUrl || null,
+          date: payment.created_at || payment.paid_at || bill.updated_at || bill.created_at
+        })
+      }
     }
   })
 
