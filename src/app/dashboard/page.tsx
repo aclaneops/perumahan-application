@@ -17,32 +17,20 @@ export default async function UserDashboard() {
 
   const adminClient = createAdminClient()
 
-  // Get current user profile
-  const { data: profile } = await adminClient
-    .from('profiles')
-    .select('*')
-    .eq('id', user.id)
-    .maybeSingle()
-
   const now = new Date()
   const currentMonth = now.getMonth() + 1
   const currentYear = now.getFullYear()
   const monthName = now.toLocaleString('id-ID', { month: 'long' })
 
-  // Fetch resident's own bills ONLY
-  const { data: residentBills } = await adminClient
-    .from('bills')
-    .select('*, payments(*)')
-    .or(`profile_id.eq.${user.id},user_id.eq.${user.id}`)
-    .order('period_year', { ascending: false })
-    .order('period_month', { ascending: false })
-
-  // Fetch resident's own payments ONLY
-  const { data: residentPayments } = await adminClient
-    .from('payments')
-    .select('*')
-    .or(`profile_id.eq.${user.id},user_id.eq.${user.id}`)
-    .order('created_at', { ascending: false })
+  const [
+    { data: profile },
+    { data: residentBills },
+    { data: residentPayments }
+  ] = await Promise.all([
+    adminClient.from('profiles').select('*').eq('id', user.id).maybeSingle(),
+    adminClient.from('bills').select('*, payments(*)').or(`profile_id.eq.${user.id},user_id.eq.${user.id}`).order('period_year', { ascending: false }).order('period_month', { ascending: false }),
+    adminClient.from('payments').select('*').or(`profile_id.eq.${user.id},user_id.eq.${user.id}`).order('created_at', { ascending: false })
+  ])
 
   // Current month bill
   const currentBill = residentBills?.find(b => b.period_month === currentMonth && b.period_year === currentYear)

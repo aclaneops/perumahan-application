@@ -27,33 +27,23 @@ export default async function AdminDashboard({ searchParams }: { searchParams: {
   const currentYear = now.getFullYear()
   const monthName = now.toLocaleString('id-ID', { month: 'long' })
 
-  // Fetch all profiles (warga only or all)
-  const { data: allProfiles } = await adminClient
-    .from('profiles')
-    .select('*')
+  // Fetch all data in parallel to avoid waterfalls
+  const [
+    { data: allProfiles },
+    { data: currentMonthBills },
+    { data: allUnpaidBills }, // For calculating overdue levels
+    { data: unvalidatedPayments }
+  ] = await Promise.all([
+    adminClient.from('profiles').select('id, full_name, house_number, role').limit(5000),
+    adminClient.from('bills').select('id, total_amount, status').eq('period_month', currentMonth).eq('period_year', currentYear).limit(5000),
+    adminClient.from('bills').select('id, profile_id, user_id, status, period_month, period_year, total_amount').neq('status', 'PAID').limit(10000),
+    adminClient.from('payments').select('*').is('validated_by', null).is('confirmed_by', null).order('created_at', { ascending: false }).limit(5000)
+  ])
 
   const wargaProfiles = allProfiles?.filter(p => p.role === 'user') || []
   const totalWarga = wargaProfiles.length
 
-  // Fetch all bills for current month
-  const { data: currentMonthBills } = await adminClient
-    .from('bills')
-    .select('*')
-    .eq('period_month', currentMonth)
-    .eq('period_year', currentYear)
-
-  // Fetch ALL bills across all time for calculating overdue levels
-  const { data: allBills } = await adminClient
-    .from('bills')
-    .select('*')
-
-  // Fetch ALL payments
-  const { data: allPayments } = await adminClient
-    .from('payments')
-    .select('*')
-    .order('created_at', { ascending: false })
-
-  const profileMap: Record<string, { full_name: string; house_number: string }> = {}
+  const profileMap: Record<string, any> = {}
   allProfiles?.forEach(p => { profileMap[p.id] = p })
 
   // Calculate current month statistics
@@ -87,8 +77,18 @@ export default async function AdminDashboard({ searchParams }: { searchParams: {
   let totalWargaMenunggakCount = 0
   let grandTotalTunggakan = 0
 
+  // Group unpaid bills by profile_id for faster O(1) lookup
+  const residentBillsMap: Record<string, any[]> = {}
+  allUnpaidBills?.forEach(b => {
+    const pId = b.profile_id || b.user_id
+    if (!residentBillsMap[pId]) residentBillsMap[pId] = []
+    residentBillsMap[pId].push(b)
+  })
+
   wargaProfiles.forEach(warga => {
-    const residentBills = allBills?.filter(b => b.profile_id === warga.id || b.user_id === warga.id) || []
+    // Only pass unpaid bills. `calculateResidentDues` might not see the current month bill if it's PAID,
+    // but if it's PAID it doesn't affect dues level anyway.
+    const residentBills = residentBillsMap[warga.id] || []
     const dues = calculateResidentDues(residentBills, currentMonth, currentYear)
 
     if (dues.level === 0) lancarCount++
@@ -103,14 +103,18 @@ export default async function AdminDashboard({ searchParams }: { searchParams: {
     }
   })
 
-  // Pending validations for admin approval table
   const pendingValidations: any[] = []
   const processedBillIds = new Set<string>()
 
-  const unvalidatedPayments = allPayments?.filter((p: any) => !p.validated_by && !p.confirmed_by) || []
+  const unvalPayments = unvalidatedPayments || []
 
-  unvalidatedPayments.forEach((payment: any) => {
-    const bill = allBills?.find((b: any) => b.id === payment.bill_id)
+  // To avoid fetching ALL bills for unvalidated payments, we can query them dynamically if not in allUnpaidBills
+  // But wait, unvalidated payments are likely for bills that are PENDING or UNPAID, which are ALREADY in allUnpaidBills!
+  const unpaidBillsMap: Record<string, any> = {}
+  allUnpaidBills?.forEach(b => { unpaidBillsMap[b.id] = b })
+
+  unvalPayments.forEach((payment: any) => {
+    const bill = unpaidBillsMap[payment.bill_id]
     if (bill && bill.status !== 'PAID') {
       const profileId = bill.profile_id || bill.user_id || payment.profile_id || payment.user_id
       const pProfile = profileMap[profileId]
@@ -130,11 +134,11 @@ export default async function AdminDashboard({ searchParams }: { searchParams: {
     }
   })
 
-  allBills?.forEach((bill: any) => {
+  allUnpaidBills?.forEach((bill: any) => {
     if (!processedBillIds.has(bill.id) && (bill.status === 'PENDING' || bill.status === 'PENDING_CONFIRMATION')) {
       const profileId = bill.profile_id || bill.user_id
       const pProfile = profileMap[profileId]
-      const paymentsForBill = allPayments?.filter((p: any) => p.bill_id === bill.id) || []
+      const paymentsForBill = unvalPayments?.filter((p: any) => p.bill_id === bill.id) || []
       const payment = paymentsForBill.sort((a: any, b: any) =>
         new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
       )[0]
