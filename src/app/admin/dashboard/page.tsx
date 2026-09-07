@@ -36,11 +36,12 @@ export default async function AdminDashboard({ searchParams }: { searchParams: {
   ] = await Promise.all([
     adminClient.from('profiles').select('id, full_name, house_number, role').limit(5000),
     adminClient.from('bills').select('id, total_amount, status').eq('period_month', currentMonth).eq('period_year', currentYear).limit(5000),
-    adminClient.from('bills').select('id, profile_id, user_id, status, period_month, period_year, total_amount').neq('status', 'PAID').limit(10000),
+    adminClient.from('bills').select('id, profile_id, user_id, status, period_month, period_year, total_amount').limit(10000),
     adminClient.from('payments').select('*').is('validated_by', null).order('created_at', { ascending: false }).limit(5000)
   ])
 
   const wargaProfiles = allProfiles?.filter(p => p.role === 'user') || []
+  const allBills = allUnpaidBills // Rename logically for the rest of the code
   const totalWarga = wargaProfiles.length
 
   const profileMap: Record<string, any> = {}
@@ -77,9 +78,9 @@ export default async function AdminDashboard({ searchParams }: { searchParams: {
   let totalWargaMenunggakCount = 0
   let grandTotalTunggakan = 0
 
-  // Group unpaid bills by profile_id for faster O(1) lookup
+  // Group ALL bills by profile_id for faster O(1) lookup
   const residentBillsMap: Record<string, any[]> = {}
-  allUnpaidBills?.forEach(b => {
+  allBills?.forEach(b => {
     const pId = b.profile_id || b.user_id
     if (!residentBillsMap[pId]) residentBillsMap[pId] = []
     residentBillsMap[pId].push(b)
