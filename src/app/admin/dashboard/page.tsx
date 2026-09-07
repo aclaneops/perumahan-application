@@ -6,7 +6,7 @@ import Link from 'next/link'
 
 export const dynamic = 'force-dynamic'
 
-export default async function AdminDashboard() {
+export default async function AdminDashboard({ searchParams }: { searchParams: { [key: string]: string | string[] | undefined } }) {
   const supabase = createClient()
   const adminClient = createAdminClient()
   
@@ -218,6 +218,31 @@ export default async function AdminDashboard() {
             </Link>
           </div>
         </header>
+
+        {/* APPROVAL RESULT BANNER */}
+        {searchParams.msg && (
+          <div className="mb-6 bg-emerald-50 border-l-4 border-emerald-500 rounded-xl p-5 flex items-center justify-between shadow-sm">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 bg-emerald-100 rounded-xl flex items-center justify-center text-2xl flex-shrink-0">
+                ✅
+              </div>
+              <div>
+                <p className="font-bold text-emerald-800 text-lg">
+                  Validasi Berhasil
+                </p>
+                <p className="text-emerald-700 text-sm mt-0.5 font-medium">
+                  {searchParams.msg}
+                </p>
+              </div>
+            </div>
+            <Link
+              href="/admin/dashboard"
+              className="ml-4 flex-shrink-0 text-emerald-600 hover:text-emerald-800 font-bold px-3 py-1 transition text-sm"
+            >
+              ✕ Tutup
+            </Link>
+          </div>
+        )}
 
         {/* APPROVAL ALERT BANNER */}
         {pendingValidations.length > 0 && (

@@ -18,7 +18,7 @@ export async function POST(request: Request) {
 
   if (action === 'approve') {
     // 1. Fetch the payment being approved
-    const { data: payment } = await adminClient.from('payments').select('amount').eq('id', paymentId).single()
+    const { data: payment } = await adminClient.from('payments').select('amount, proof_url, payment_proof_url').eq('id', paymentId).single()
     const thisAmount = Number(payment?.amount || 0)
 
     // 2. Fetch all OTHER validated payments for this bill
@@ -33,12 +33,13 @@ export async function POST(request: Request) {
     // 3. Fetch bill total amount
     const { data: bill } = await adminClient.from('bills').select('total_amount, profile_id, user_id, period_month, period_year').eq('id', billId).single()
     const billTotal = Number(bill?.total_amount || 0)
+    const profileId = bill?.profile_id || bill?.user_id
 
     // 4. Update bill status
     const newStatus = totalPaidNow >= billTotal ? 'PAID' : 'PARTIAL'
     await adminClient.from('bills').update({ status: newStatus }).eq('id', billId)
 
-    // 5. Mark payment as validated (supporting both validated_by and confirmed_by)
+    // 5. Mark payment as validated
     const { error: valErr } = await adminClient.from('payments').update({ 
       validated_by: user.id,
       validated_at: new Date().toISOString()
@@ -51,26 +52,95 @@ export async function POST(request: Request) {
       }).eq('id', paymentId)
     }
 
-    // Notify resident via Telegram (only when the bill is now fully PAID)
-    if (newStatus === 'PAID' && (bill?.profile_id || bill?.user_id)) {
+    let remainingAmount = totalPaidNow - billTotal
+    const settledBills = [bill?.period_month ? `${MONTH_NAMES[bill.period_month - 1]} ${bill.period_year}` : '']
+    let excessMsg = ''
+
+    if (newStatus === 'PAID' && remainingAmount > 0 && profileId) {
+      // Arrears Settlement (Distribute excess to other unpaid bills)
+      const { data: unpaidBills } = await adminClient
+        .from('bills')
+        .select('id, period_month, period_year, total_amount')
+        .eq('profile_id', profileId)
+        .eq('status', 'UNPAID')
+        .order('period_year', { ascending: true })
+        .order('period_month', { ascending: true })
+
+      if (unpaidBills && unpaidBills.length > 0) {
+        for (const unpaid of unpaidBills) {
+          const unpaidTotal = Number(unpaid.total_amount) || 0
+          if (remainingAmount >= unpaidTotal) {
+            await adminClient.from('bills').update({ status: 'PAID' }).eq('id', unpaid.id)
+            await adminClient.from('payments').insert({
+              bill_id: unpaid.id,
+              profile_id: profileId,
+              user_id: profileId,
+              amount: unpaidTotal,
+              proof_url: payment?.proof_url || payment?.payment_proof_url,
+              validated_by: user.id,
+              validated_at: new Date().toISOString()
+            })
+            remainingAmount -= unpaidTotal
+            const bMonth = unpaid.period_month ? MONTH_NAMES[unpaid.period_month - 1] : '-'
+            settledBills.push(`${bMonth} ${unpaid.period_year}`)
+          } else {
+            break // Not enough remaining to pay the next bill fully
+          }
+        }
+      }
+
+      // If there's STILL money remaining, log it as "Lebih Bayar"
+      if (remainingAmount > 0) {
+        const { data: residentProfile } = await adminClient
+          .from('profiles')
+          .select('full_name, house_number')
+          .eq('id', profileId)
+          .maybeSingle()
+          
+        const name = residentProfile?.full_name || 'Warga'
+        const houseNumber = residentProfile?.house_number || '-'
+
+        await adminClient.from('transactions').insert({
+          type: 'INCOME',
+          category: 'Lebih Bayar Tagihan',
+          amount: remainingAmount,
+          description: `Kelebihan bayar tagihan dari warga ${name} (${houseNumber})`,
+          created_by: user.id,
+          date: new Date().toISOString()
+        })
+        
+        excessMsg = ` Sisa Rp ${remainingAmount.toLocaleString('id-ID')} masuk ke Kas RT (Lebih Bayar).`
+      }
+    }
+
+    // Notify resident via Telegram (only when the primary bill is now fully PAID)
+    if (newStatus === 'PAID' && profileId) {
       const { data: residentProfile } = await adminClient
         .from('profiles')
         .select('full_name, telegram_chat_id')
-        .eq('id', bill.profile_id || bill.user_id)
+        .eq('id', profileId)
         .maybeSingle()
 
       if (residentProfile?.telegram_chat_id) {
-        const monthName = bill?.period_month ? (MONTH_NAMES[bill.period_month - 1] || `Bulan ${bill.period_month}`) : '-'
         const msg = formatPaymentConfirmedMessage(
           residentProfile.full_name || 'Warga',
-          monthName,
-          bill?.period_year || new Date().getFullYear(),
-          totalPaidNow,
+          settledBills.join(', '),
+          new Date().getFullYear(),
+          totalPaidNow - (remainingAmount > 0 ? remainingAmount : 0), // Tell them how much was used for bills
           new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })
         )
         await sendTelegramMessage(residentProfile.telegram_chat_id, msg)
       }
     }
+    
+    // Construct return message for Admin UI
+    let returnMsg = 'Pembayaran berhasil divalidasi.'
+    if (settledBills.length > 1) {
+      returnMsg = `Berhasil memvalidasi. Tunggakan ${settledBills.slice(1).join(', ')} otomatis lunas.`
+    }
+    returnMsg += excessMsg
+    
+    return NextResponse.redirect(new URL(`/admin/dashboard?msg=${encodeURIComponent(returnMsg)}`, request.url), { status: 302 })
   } else if (action === 'reject') {
     // Fetch bill info (for notification) + previous payments to see if there were any partial payments already
     const { data: billForReject } = await adminClient.from('bills').select('profile_id, user_id, period_month, period_year').eq('id', billId).single()
