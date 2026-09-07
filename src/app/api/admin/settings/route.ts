@@ -36,11 +36,17 @@ export async function POST(request: Request) {
   }
   
   if (action === 'generate_bills') {
-    // Delegate to /api/cron: it generates this month's bills AND sends the
+    const month = formData.get('month')
+    const year = formData.get('year')
+    
+    // Delegate to /api/cron: it generates bills AND sends the
     // Telegram notifications (new bill, H-5, due date, overdue). This keeps
     // manual triggering and the scheduled cron in sync — one source of truth.
     const cronSecret = process.env.CRON_SECRET
     const cronUrl = new URL('/api/cron', request.url)
+    if (month) cronUrl.searchParams.set('month', month.toString())
+    if (year) cronUrl.searchParams.set('year', year.toString())
+
     const cronRes = await fetch(cronUrl, {
       headers: cronSecret ? { Authorization: `Bearer ${cronSecret}` } : {}
     })

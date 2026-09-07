@@ -21,9 +21,10 @@ export async function GET(request: Request) {
   }
 
   const adminClient = createAdminClient()
+  const { searchParams } = new URL(request.url)
   const now = new Date()
-  const currentMonth = now.getMonth() + 1
-  const currentYear = now.getFullYear()
+  const currentMonth = searchParams.has('month') ? parseInt(searchParams.get('month')!) : now.getMonth() + 1
+  const currentYear = searchParams.has('year') ? parseInt(searchParams.get('year')!) : now.getFullYear()
   const currentDateNum = now.getDate()
   const monthName = MONTH_NAMES[currentMonth - 1] || `Bulan ${currentMonth}`
 
