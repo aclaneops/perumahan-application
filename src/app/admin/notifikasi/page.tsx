@@ -64,6 +64,7 @@ export default async function NotifikasiPage() {
           <Link href="/admin/notifikasi" className="block px-4 py-3 rounded-lg bg-blue-600 text-white font-medium">Log Notifikasi</Link>
           <Link href="/admin/keuangan" className="block px-4 py-3 rounded-lg text-slate-300 hover:bg-slate-800 transition">Pembukuan</Link>
           <Link href="/admin/laporan" className="block px-4 py-3 rounded-lg text-slate-300 hover:bg-slate-800 transition">Laporan Bulanan</Link>
+          <Link href="/admin/rekap-tahunan" className="block px-4 py-3 rounded-lg text-slate-300 hover:bg-slate-800 transition">Rekap Tahunan</Link>
           <Link href="/admin/tutup-buku" className="block px-4 py-3 rounded-lg text-slate-300 hover:bg-slate-800 transition">Tutup Buku</Link>
         </nav>
         <div className="p-4 border-t border-slate-700">
