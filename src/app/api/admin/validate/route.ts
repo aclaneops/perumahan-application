@@ -106,7 +106,7 @@ export async function POST(request: Request) {
           amount: remainingAmount,
           description: `Kelebihan bayar tagihan dari warga ${name} (${houseNumber})`,
           created_by: user.id,
-          date: new Date().toISOString()
+          date: new Date().toISOString().split('T')[0]
         })
         
         excessMsg = ` Sisa Rp ${remainingAmount.toLocaleString('id-ID')} masuk ke Kas RT (Lebih Bayar).`
