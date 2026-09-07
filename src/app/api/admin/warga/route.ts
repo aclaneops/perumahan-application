@@ -55,3 +55,40 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 }
+
+export async function DELETE(request: Request) {
+  try {
+    const { searchParams } = new URL(request.url)
+    const id = searchParams.get('id')
+
+    if (!id) {
+      return NextResponse.json({ error: 'User ID is required' }, { status: 400 })
+    }
+
+    const adminClient = createAdminClient()
+    
+    // First, delete transactions created by this user
+    const { error: txError } = await adminClient
+      .from('transactions')
+      .delete()
+      .eq('created_by', id)
+
+    if (txError) {
+      console.error('Error deleting transactions:', txError)
+      // Continue anyway as it shouldn't block user deletion entirely
+    }
+
+    // Delete auth user, which cascades to profiles, bills, and payments
+    const { error: authError } = await adminClient.auth.admin.deleteUser(id)
+
+    if (authError) {
+      console.error('Error deleting auth user:', authError)
+      return NextResponse.json({ error: authError.message }, { status: 500 })
+    }
+
+    return NextResponse.json({ success: true })
+  } catch (error: any) {
+    console.error('Unexpected error:', error)
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+}

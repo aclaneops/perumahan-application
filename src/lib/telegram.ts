@@ -94,3 +94,17 @@ export function formatAdminSummaryReportMessage(monthName: string, year: number,
     `🔴 3 Bulan: ${stats.l3Count} warga\n` +
     `🔴 4+ Bulan: ${stats.l4Count} warga`
 }
+
+export function formatPaymentConfirmedMultipleMessage(name: string, periods: string[], amount: number, dateStr: string) {
+  const periodList = periods.map(p => `• ${p}`).join('\n')
+  return `Halo Pak/Bu <b>${name}</b> 👋\n\nPembayaran iuran telah berhasil dicatat & divalidasi.\n\nTelah melunasi tagihan berikut:\n<b>${periodList}</b>\n\nTotal Nominal: <b>Rp ${amount.toLocaleString('id-ID')}</b>\nTanggal: <b>${dateStr}</b>\nStatus: <b>✅ LUNAS</b>\n\nTerima kasih atas partisipasinya! 🙏`
+}
+
+export function formatPaymentAutoValidatedMultipleMessage(name: string, houseNumber: string, periods: string[], amount: number) {
+  const periodList = periods.map(p => `• ${p}`).join('\n')
+  return `✅ <b>Pembayaran Tunggakan Tervalidasi Otomatis</b>\n\nWarga: <b>${name}</b> (${houseNumber})\n\nMelunasi periode:\n<b>${periodList}</b>\n\nTotal Nominal: <b>Rp ${amount.toLocaleString('id-ID')}</b>\nStatus: <b>LUNAS</b>\n\n📌 Pembayaran telah sesuai tagihan dan divalidasi otomatis (Sistem AI) setelah 15 menit.`
+}
+
+export function formatPaymentManualReviewRequiredMessage(name: string, houseNumber: string, monthName: string, year: number, reason: string) {
+  return `⚠️ <b>Indikasi Ketidaksesuaian Bukti Transfer</b>\n\nWarga: <b>${name}</b> (${houseNumber})\nPeriode: <b>${monthName} ${year}</b>\n\nAlasan sistem menolak validasi otomatis:\n<b>${reason}</b>\n\nMohon segera dicek & divalidasi secara manual di panel admin.`
+}

@@ -2,6 +2,7 @@ import { createClient } from '@/utils/supabase/server'
 import { createAdminClient } from '@/utils/supabase/admin'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
+import DeleteWargaButton from './DeleteWargaButton'
 
 export const dynamic = 'force-dynamic'
 
@@ -116,6 +117,7 @@ export default async function ManageWargaPage() {
                       <Link href={`/admin/warga/edit/${w.id}`} className="text-slate-600 hover:underline font-medium text-xs">
                         Edit
                       </Link>
+                      <DeleteWargaButton id={w.id} name={w.full_name} />
                     </td>
                   </tr>
                 ))}
