@@ -109,7 +109,7 @@ export default function TelegramPairingWidget({
                 {pairingCode}
               </div>
               <ol className="text-xs text-slate-600 text-left space-y-1 bg-white/80 p-3 rounded-lg border border-blue-100">
-                <li>1. Buka Telegram Bot <b>@PerumahanBot</b></li>
+                <li>1. Buka Telegram Bot <b>@Griyasartika_bot</b></li>
                 <li>2. Kirim pesan: <code className="bg-slate-100 px-1 rounded font-bold">/start {pairingCode}</code></li>
                 <li>3. Halaman ini akan otomatis terhubung!</li>
               </ol>
