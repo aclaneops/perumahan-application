@@ -138,13 +138,37 @@ export default async function UserDashboard() {
 
             <div className="space-y-2">
               <p className="text-xs font-bold uppercase tracking-wider text-rose-800">Rincian Periode Menunggak:</p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {duesInfo.overduePeriods.map((p, idx) => (
-                  <div key={idx} className="bg-white/80 p-3 rounded-xl border border-rose-200 flex justify-between items-center text-sm font-medium">
-                    <span className="text-slate-800 font-bold">{p.monthName} {p.year}</span>
-                    <span className="text-rose-700 font-extrabold">Rp {p.amount.toLocaleString('id-ID')}</span>
-                  </div>
-                ))}
+              <div className="grid grid-cols-1 gap-3">
+                {duesInfo.overduePeriods.map((p, idx) => {
+                  const isPending = p.status === 'PENDING_CONFIRMATION' || p.status === 'PENDING'
+                  const isPartial = p.status === 'PARTIAL'
+
+                  return (
+                    <div key={idx} className="bg-white/90 p-4 rounded-xl border border-rose-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 text-sm font-medium shadow-sm">
+                      <div>
+                        <div className="text-slate-800 font-bold text-base">{p.monthName} {p.year}</div>
+                        <div className="text-rose-700 font-extrabold mt-0.5">Rp {p.amount.toLocaleString('id-ID')}</div>
+                      </div>
+                      
+                      <Link 
+                        href={`/dashboard/upload?billId=${p.billId}&total=${p.amount}`}
+                        className={`inline-flex items-center px-4 py-2 rounded-lg text-sm font-bold transition shadow-sm
+                          ${isPending 
+                            ? 'bg-amber-100 text-amber-700 border border-amber-200 pointer-events-none cursor-not-allowed' 
+                            : isPartial 
+                            ? 'bg-orange-100 text-orange-700 border border-orange-200 hover:bg-orange-200' 
+                            : 'bg-rose-600 text-white hover:bg-rose-700 hover:shadow-md'
+                          }`}
+                      >
+                        {isPending 
+                          ? '⏳ Menunggu Validasi' 
+                          : isPartial 
+                          ? '⚠️ Upload Sisa Pembayaran' 
+                          : '📤 Upload Bukti Bayar'}
+                      </Link>
+                    </div>
+                  )
+                })}
               </div>
             </div>
           </div>
