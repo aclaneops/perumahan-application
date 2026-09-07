@@ -57,6 +57,9 @@ export async function POST(request: Request) {
     let excessMsg = ''
 
     if (newStatus === 'PAID' && remainingAmount > 0 && profileId) {
+      // Adjust the original payment's amount so we don't double count in the financial report
+      await adminClient.from('payments').update({ amount: thisAmount - remainingAmount }).eq('id', paymentId)
+
       // Arrears Settlement (Distribute excess to other unpaid bills)
       const { data: unpaidBills } = await adminClient
         .from('bills')

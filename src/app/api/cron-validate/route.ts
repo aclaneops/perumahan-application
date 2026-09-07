@@ -208,6 +208,14 @@ export async function GET(request: Request) {
 
     // Mark current bill as PAID
     await adminClient.from('bills').update({ status: 'PAID' }).eq('id', bill.id)
+
+    // Mark original payment as validated and adjust its amount so we don't double count
+    const amountForThisBill = remainingAmount > 0 ? totalAmount : verifiedAmount
+    await adminClient.from('payments').update({
+      validated_by: 'system_cron',
+      validated_at: new Date().toISOString(),
+      amount: amountForThisBill
+    }).eq('id', payment.id)
     
     // If there is excess money, automatically pay off older UNPAID bills
     if (remainingAmount > 0) {
