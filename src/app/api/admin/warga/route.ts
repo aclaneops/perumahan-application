@@ -67,18 +67,35 @@ export async function DELETE(request: Request) {
 
     const adminClient = createAdminClient()
     
-    // First, delete transactions created by this user
-    const { error: txError } = await adminClient
-      .from('transactions')
-      .delete()
-      .eq('created_by', id)
-
-    if (txError) {
-      console.error('Error deleting transactions:', txError)
-      // Continue anyway as it shouldn't block user deletion entirely
+    try {
+      // First, delete transactions created by this user
+      await adminClient.from('transactions').delete().eq('created_by', id)
+      
+      // Get all bills for this user
+      const { data: bills } = await adminClient.from('bills').select('id').eq('user_id', id)
+      if (bills && bills.length > 0) {
+        const billIds = bills.map(b => b.id)
+        // Delete all payments associated with these bills
+        await adminClient.from('payments').delete().in('bill_id', billIds)
+      }
+      
+      // If this user was an admin, they might have confirmed payments (which has a RESTRICT constraint)
+      await adminClient.from('payments').update({ confirmed_by: null }).eq('confirmed_by', id)
+      
+      // Delete their bills
+      await adminClient.from('bills').delete().eq('user_id', id)
+      
+      // Delete their telegram pairings and notification logs
+      await adminClient.from('telegram_pairings').delete().eq('profile_id', id)
+      await adminClient.from('notification_logs').delete().eq('profile_id', id)
+      
+      // Delete their profile
+      await adminClient.from('profiles').delete().eq('id', id)
+    } catch (cleanupError) {
+      console.error('Error during pre-deletion cleanup:', cleanupError)
     }
 
-    // Delete auth user, which cascades to profiles, bills, and payments
+    // Finally, delete auth user
     const { error: authError } = await adminClient.auth.admin.deleteUser(id)
 
     if (authError) {
