@@ -129,7 +129,8 @@ export default async function AdminDashboard({ searchParams }: { searchParams: {
         amount: payment.amount || bill.total_amount,
         totalBill: bill.total_amount,
         proofUrl: proofUrl || null,
-        date: payment.created_at || payment.paid_at || bill.updated_at || bill.created_at
+        date: payment.created_at || payment.paid_at || bill.updated_at || bill.created_at,
+        coveredItems: payment.covered_items || null
       })
       processedBillIds.add(bill.id)
     }
@@ -154,7 +155,8 @@ export default async function AdminDashboard({ searchParams }: { searchParams: {
           amount: payment.amount || bill.total_amount,
           totalBill: bill.total_amount,
           proofUrl: proofUrl || null,
-          date: payment.created_at || payment.paid_at || bill.updated_at || bill.created_at
+          date: payment.created_at || payment.paid_at || bill.updated_at || bill.created_at,
+          coveredItems: payment.covered_items || null
         })
       }
     }
@@ -431,6 +433,15 @@ export default async function AdminDashboard({ searchParams }: { searchParams: {
                       <td className="py-4 px-6 font-medium">
                         <div className="text-blue-600">Bayar: Rp {Number(item.amount).toLocaleString('id-ID')}</div>
                         <div className="text-xs text-slate-500">Tagihan: Rp {Number(item.totalBill).toLocaleString('id-ID')}</div>
+                        {item.coveredItems && (
+                          <div className="text-[10px] bg-slate-100 p-1.5 rounded mt-1.5 text-slate-600 leading-tight">
+                            <span className="font-bold block mb-0.5 border-b border-slate-200 pb-0.5">Item Dibayar:</span>
+                            {item.coveredItems.security && <div className="flex justify-between"><span>Keamanan</span><span>✅</span></div>}
+                            {item.coveredItems.trash && <div className="flex justify-between"><span>Kebersihan</span><span>✅</span></div>}
+                            {item.coveredItems.water && <div className="flex justify-between"><span>Air</span><span>✅</span></div>}
+                            {item.coveredItems.treasury && <div className="flex justify-between"><span>Kas RT</span><span>✅</span></div>}
+                          </div>
+                        )}
                       </td>
                       <td className="py-4 px-6 text-slate-500">{new Date(item.date).toLocaleString('id-ID')}</td>
                       <td className="py-4 px-6">

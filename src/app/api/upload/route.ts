@@ -18,6 +18,7 @@ export async function POST(request: Request) {
     const file = formData.get('file') as File
     const billId = formData.get('billId') as string
     const amountPaid = formData.get('amountPaid') as string
+    const coveredItems = formData.get('coveredItems') as string
 
     if (!file || !billId) {
       return NextResponse.json({ error: 'File and billId are required' }, { status: 400 })
@@ -50,6 +51,16 @@ export async function POST(request: Request) {
       .eq('id', billId)
       .single()
 
+    // Parse covered items
+    let parsedCoveredItems = null
+    if (coveredItems) {
+      try {
+        parsedCoveredItems = JSON.parse(coveredItems)
+      } catch (e) {
+        console.error('Failed to parse coveredItems', e)
+      }
+    }
+
     // Insert record into payments table (supporting all column variations)
     let insertError = null
     
@@ -62,7 +73,8 @@ export async function POST(request: Request) {
         user_id: user.id,
         amount: Number(amountPaid) || bill?.total_amount || 0,
         proof_url: publicUrl,
-        payment_proof_url: publicUrl
+        payment_proof_url: publicUrl,
+        covered_items: parsedCoveredItems
       })
 
     if (try1.error) {
@@ -73,7 +85,8 @@ export async function POST(request: Request) {
           bill_id: billId,
           profile_id: user.id,
           amount: Number(amountPaid) || bill?.total_amount || 0,
-          proof_url: publicUrl
+          proof_url: publicUrl,
+          covered_items: parsedCoveredItems
         })
       
       if (try2.error) {
@@ -84,7 +97,8 @@ export async function POST(request: Request) {
             bill_id: billId,
             profile_id: user.id,
             amount: Number(amountPaid) || bill?.total_amount || 0,
-            payment_proof_url: publicUrl
+            payment_proof_url: publicUrl,
+            covered_items: parsedCoveredItems
           })
         insertError = try3.error
       }

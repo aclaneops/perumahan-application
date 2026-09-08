@@ -16,6 +16,29 @@ function UploadForm() {
   const searchParams = useSearchParams()
   const billId = searchParams.get('billId')
   const totalParam = searchParams.get('total')
+  
+  // Fee parameters passed from dashboard
+  const waterFee = Number(searchParams.get('water')) || 0
+  const trashFee = Number(searchParams.get('trash')) || 0
+  const secFee = Number(searchParams.get('sec')) || 0
+  const treaFee = Number(searchParams.get('trea')) || 0
+
+  const [coveredItems, setCoveredItems] = useState({
+    water: false,
+    trash: false,
+    security: false,
+    treasury: false
+  })
+
+  // Calculate sum of selected items
+  const selectedSum = 
+    (coveredItems.water ? waterFee : 0) +
+    (coveredItems.trash ? trashFee : 0) +
+    (coveredItems.security ? secFee : 0) +
+    (coveredItems.treasury ? treaFee : 0)
+
+  const isPartial = Number(amountPaid) > 0 && Number(amountPaid) < Number(totalParam)
+  const isSelectedSumValid = selectedSum === Number(amountPaid)
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const selectedFile = e.target.files?.[0] || null
@@ -58,6 +81,11 @@ function UploadForm() {
     e.preventDefault()
     if (!file || !billId) return
 
+    if (isPartial && !isSelectedSumValid) {
+      setError(`Total item yang dipilih (Rp ${selectedSum.toLocaleString('id-ID')}) tidak sama dengan nominal transfer (Rp ${Number(amountPaid).toLocaleString('id-ID')}). Harap sesuaikan centang item.`)
+      return
+    }
+
     setUploading(true)
     setError('')
 
@@ -66,6 +94,15 @@ function UploadForm() {
       formData.append('file', file)
       formData.append('billId', billId)
       formData.append('amountPaid', amountPaid)
+      
+      if (isPartial) {
+        formData.append('coveredItems', JSON.stringify(coveredItems))
+      } else {
+        // If paid in full (or more), all items are considered covered
+        formData.append('coveredItems', JSON.stringify({
+          water: true, trash: true, security: true, treasury: true
+        }))
+      }
 
       const res = await fetch('/api/upload', {
         method: 'POST',
@@ -91,8 +128,9 @@ function UploadForm() {
       <p className="text-slate-500 mb-6">Silakan masukkan nominal transfer dan upload bukti pembayaran tagihan Anda.</p>
       
       {totalParam && (
-        <div className="bg-blue-50 border border-blue-200 text-blue-800 p-4 rounded-lg mb-6">
-          <p className="font-medium text-sm">Total Tagihan: Rp {Number(totalParam).toLocaleString('id-ID')}</p>
+        <div className="bg-blue-50 border border-blue-200 text-blue-800 p-4 rounded-lg mb-6 flex justify-between items-center">
+          <p className="font-medium text-sm">Total Tagihan:</p>
+          <p className="font-bold text-lg">Rp {Number(totalParam).toLocaleString('id-ID')}</p>
         </div>
       )}
 
@@ -115,12 +153,63 @@ function UploadForm() {
             type="number" 
             required 
             value={amountPaid}
-            onChange={(e) => setAmountPaid(e.target.value)}
+            onChange={(e) => {
+              setAmountPaid(e.target.value)
+              setError('') // Clear error on change
+            }}
             placeholder="Contoh: 150000"
             className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition" 
           />
-          <p className="text-xs text-slate-500 mt-1">Anda bisa membayar sebagian dari total tagihan.</p>
         </div>
+
+        {isPartial && (
+          <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3">
+            <h4 className="text-sm font-bold text-slate-700 mb-2">Pilih Item yang Dibayar:</h4>
+            <p className="text-xs text-slate-500 mb-3 leading-relaxed">
+              Karena nominal transfer kurang dari total tagihan, silakan centang item mana saja yang dibayar sesuai nominal.
+            </p>
+            
+            <div className="space-y-2 text-sm">
+              <label className="flex items-center justify-between p-2 rounded-lg hover:bg-slate-100 cursor-pointer transition">
+                <div className="flex items-center space-x-3">
+                  <input type="checkbox" checked={coveredItems.security} onChange={(e) => setCoveredItems({...coveredItems, security: e.target.checked})} className="w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500" />
+                  <span className="font-medium text-slate-700">🔒 Keamanan</span>
+                </div>
+                <span className="text-slate-600">Rp {secFee.toLocaleString('id-ID')}</span>
+              </label>
+              
+              <label className="flex items-center justify-between p-2 rounded-lg hover:bg-slate-100 cursor-pointer transition">
+                <div className="flex items-center space-x-3">
+                  <input type="checkbox" checked={coveredItems.trash} onChange={(e) => setCoveredItems({...coveredItems, trash: e.target.checked})} className="w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500" />
+                  <span className="font-medium text-slate-700">🗑️ Kebersihan</span>
+                </div>
+                <span className="text-slate-600">Rp {trashFee.toLocaleString('id-ID')}</span>
+              </label>
+
+              <label className="flex items-center justify-between p-2 rounded-lg hover:bg-slate-100 cursor-pointer transition">
+                <div className="flex items-center space-x-3">
+                  <input type="checkbox" checked={coveredItems.water} onChange={(e) => setCoveredItems({...coveredItems, water: e.target.checked})} className="w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500" />
+                  <span className="font-medium text-slate-700">💧 Air</span>
+                </div>
+                <span className="text-slate-600">Rp {waterFee.toLocaleString('id-ID')}</span>
+              </label>
+
+              <label className="flex items-center justify-between p-2 rounded-lg hover:bg-slate-100 cursor-pointer transition">
+                <div className="flex items-center space-x-3">
+                  <input type="checkbox" checked={coveredItems.treasury} onChange={(e) => setCoveredItems({...coveredItems, treasury: e.target.checked})} className="w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500" />
+                  <span className="font-medium text-slate-700">🏦 Kas</span>
+                </div>
+                <span className="text-slate-600">Rp {treaFee.toLocaleString('id-ID')}</span>
+              </label>
+            </div>
+            
+            <div className={`mt-4 pt-3 border-t flex justify-between items-center text-sm font-bold ${isSelectedSumValid ? 'text-emerald-600' : 'text-rose-600'}`}>
+              <span>Total Dipilih:</span>
+              <span>Rp {selectedSum.toLocaleString('id-ID')}</span>
+            </div>
+          </div>
+        )}
+
         <div className="border-2 border-dashed border-slate-300 rounded-xl p-8 text-center hover:bg-slate-50 transition cursor-pointer relative">
           <input 
             type="file" 
@@ -159,7 +248,7 @@ function UploadForm() {
           </button>
           <button 
             type="submit"
-            disabled={!file || uploading}
+            disabled={!file || uploading || (isPartial && !isSelectedSumValid)}
             className="flex-1 py-3 px-4 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {uploading ? 'Mengupload...' : 'Kirim Bukti'}

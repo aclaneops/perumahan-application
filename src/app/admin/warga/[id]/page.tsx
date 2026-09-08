@@ -214,29 +214,52 @@ export default async function WargaDetailPage({ params }: { params: { id: string
               {residentBills.map((b: any) => {
                 const isPaid = b.status === 'PAID'
                 const isPending = b.status === 'PENDING_CONFIRMATION' || b.status === 'PENDING'
+                const isPartial = b.status === 'PARTIAL'
                 const monthNameStr = MONTH_NAMES[b.period_month - 1] || `Bulan ${b.period_month}`
 
                 return (
-                  <div key={b.id} className={`p-4 rounded-xl border flex justify-between items-center ${isPaid ? 'bg-emerald-50/60 border-emerald-200' : isPending ? 'bg-yellow-50/60 border-yellow-200' : 'bg-rose-50/60 border-rose-200'}`}>
-                    <div>
-                      <p className="font-bold text-slate-800 text-sm">{monthNameStr} {b.period_year}</p>
-                      <p className="text-xs text-slate-600 font-semibold mt-0.5">Rp {Number(b.total_amount || 0).toLocaleString('id-ID')}</p>
+                  <div key={b.id} className={`p-4 rounded-xl border flex flex-col justify-between ${isPaid ? 'bg-emerald-50/60 border-emerald-200' : isPending ? 'bg-yellow-50/60 border-yellow-200' : isPartial ? 'bg-orange-50/60 border-orange-200' : 'bg-rose-50/60 border-rose-200'}`}>
+                    <div className="flex justify-between items-start mb-2">
+                      <div>
+                        <p className="font-bold text-slate-800 text-sm">{monthNameStr} {b.period_year}</p>
+                        <p className="text-xs text-slate-600 font-semibold mt-0.5">Rp {Number(b.total_amount || 0).toLocaleString('id-ID')}</p>
+                      </div>
+                      <div>
+                        {isPaid ? (
+                          <span className="text-xs font-extrabold text-emerald-700 bg-emerald-100 px-2.5 py-1 rounded-md">
+                            ✅ LUNAS
+                          </span>
+                        ) : isPending ? (
+                          <span className="text-xs font-extrabold text-yellow-800 bg-yellow-100 px-2.5 py-1 rounded-md">
+                            ⏳ VALIDASI
+                          </span>
+                        ) : isPartial ? (
+                          <span className="text-xs font-extrabold text-orange-700 bg-orange-100 px-2.5 py-1 rounded-md">
+                            ⚠️ KURANG
+                          </span>
+                        ) : (
+                          <span className="text-xs font-extrabold text-rose-700 bg-rose-100 px-2.5 py-1 rounded-md">
+                            ❌ BELUM
+                          </span>
+                        )}
+                      </div>
                     </div>
-                    <div>
-                      {isPaid ? (
-                        <span className="text-xs font-extrabold text-emerald-700 bg-emerald-100 px-2.5 py-1 rounded-md">
-                          ✅ LUNAS
-                        </span>
-                      ) : isPending ? (
-                        <span className="text-xs font-extrabold text-yellow-800 bg-yellow-100 px-2.5 py-1 rounded-md">
-                          ⏳ VALIDASI
-                        </span>
-                      ) : (
-                        <span className="text-xs font-extrabold text-rose-700 bg-rose-100 px-2.5 py-1 rounded-md">
-                          ❌ BELUM
-                        </span>
-                      )}
-                    </div>
+                    {b.notes && (
+                      <div className="mt-2 text-[10px] bg-white/60 p-2 rounded text-slate-600 italic border border-slate-100">
+                        "{b.notes}"
+                      </div>
+                    )}
+                    {isPartial && (
+                      <div className="mt-3 pt-3 border-t border-orange-200/50">
+                        <form action="/api/admin/exempt" method="POST" className="flex flex-col gap-2">
+                          <input type="hidden" name="billId" value={b.id} />
+                          <input type="text" name="reason" placeholder="Alasan pengecualian sisa..." required className="text-xs p-1.5 border border-orange-200 rounded w-full focus:outline-none focus:ring-1 focus:ring-orange-400" />
+                          <button type="submit" className="w-full bg-orange-100 hover:bg-orange-200 text-orange-800 text-[10px] font-bold py-1.5 rounded transition">
+                            Bebaskan Sisa
+                          </button>
+                        </form>
+                      </div>
+                    )}
                   </div>
                 )
               })}

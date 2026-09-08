@@ -216,7 +216,7 @@ export default async function UserDashboard() {
               </p>
               
               <Link 
-                href={currentBill ? `/dashboard/upload?billId=${currentBill.id}&total=${currentBill.total_amount || 0}` : '#'} 
+                href={currentBill ? `/dashboard/upload?billId=${currentBill.id}&total=${currentBill.total_amount || 0}&water=${currentBill.water_fee || 0}&trash=${currentBill.trash_fee || 0}&sec=${currentBill.security_fee || 0}&trea=${currentBill.treasury_fee || 0}` : '#'} 
                 className={`block w-full py-3.5 px-4 bg-white text-center text-blue-600 rounded-xl font-bold text-sm transition shadow-xl shadow-blue-900/20 hover:scale-[1.02] ${(!currentBill || isPaid || isPending) ? 'opacity-50 pointer-events-none cursor-not-allowed' : ''}`}
               >
                 {!currentBill 
