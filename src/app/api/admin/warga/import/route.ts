@@ -24,10 +24,10 @@ export async function POST(request: Request) {
       }
 
       // Generate a dummy email and password since they don't have one from Excel
+      const cleanName = full_name.replace(/[^a-zA-Z0-9]/g, '').toLowerCase()
       const cleanHouse = house_number.replace(/[^a-zA-Z0-9]/g, '').toLowerCase()
-      const randomSuffix = Math.floor(Math.random() * 10000).toString().padStart(4, '0')
-      const email = `${cleanHouse}_${randomSuffix}@warga.com`
-      const password = `warga${randomSuffix}`
+      const email = `${cleanName}${cleanHouse}@griyasartika.com`
+      const password = `123456`
 
       // 1. Create user in auth schema using admin api
       const { data: authData, error: authError } = await adminClient.auth.admin.createUser({

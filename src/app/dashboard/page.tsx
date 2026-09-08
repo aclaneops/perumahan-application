@@ -4,6 +4,7 @@ import { calculateResidentDues, getLevelMetadata } from '@/lib/dues'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import TelegramPairingWidget from './TelegramPairingWidget'
+import ChangePasswordWidget from './ChangePasswordWidget'
 
 export const dynamic = 'force-dynamic'
 
@@ -250,6 +251,9 @@ export default async function UserDashboard() {
                 </div>
               </div>
             </div>
+
+            {/* Change Password Widget */}
+            <ChangePasswordWidget />
           </div>
         </div>
 
