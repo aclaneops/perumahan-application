@@ -6,7 +6,7 @@ import PrintButton from './PrintButton'
 
 export const dynamic = 'force-dynamic'
 
-export default async function RekapTahunanPage({ searchParams }: { searchParams: { year?: string } }) {
+export default async function RekapTahunanPage({ searchParams }: { searchParams: { year?: string, cat?: string, blok?: string } }) {
   const supabase = createClient()
   const adminClient = createAdminClient()
   
@@ -27,6 +27,8 @@ export default async function RekapTahunanPage({ searchParams }: { searchParams:
 
   const now = new Date()
   const targetYear = searchParams.year ? parseInt(searchParams.year) : now.getFullYear()
+  const category = searchParams.cat || 'all'
+  const filterBlok = searchParams.blok || 'all'
 
   // 1. Fetch all residents (warga)
   const { data: wargaList } = await adminClient
@@ -38,11 +40,16 @@ export default async function RekapTahunanPage({ searchParams }: { searchParams:
   // 2. Fetch all bills for the target year
   const { data: allBills } = await adminClient
     .from('bills')
-    .select('id, profile_id, user_id, period_month, total_amount, status')
+    .select('id, profile_id, user_id, period_month, total_amount, water_fee, trash_fee, security_fee, treasury_fee, status')
     .eq('period_year', targetYear)
 
+  let filteredWarga = wargaList || []
+  if (filterBlok !== 'all') {
+    filteredWarga = filteredWarga.filter(w => w.house_number?.toUpperCase().startsWith(filterBlok.toUpperCase()))
+  }
+
   // Map the bills to their respective residents
-  const reportData = (wargaList || []).map(warga => {
+  const reportData = filteredWarga.map(warga => {
     // Some older records might use user_id instead of profile_id, accommodate both
     const residentBills = (allBills || []).filter(b => b.profile_id === warga.id || b.user_id === warga.id)
     
@@ -57,12 +64,25 @@ export default async function RekapTahunanPage({ searchParams }: { searchParams:
     residentBills.forEach(bill => {
       const month = bill.period_month
       if (month >= 1 && month <= 12) {
+        let amount = 0
+        
+        if (category === 'air') {
+          amount = Number(bill.water_fee || 0)
+        } else if (category === 'keamanan_sampah') {
+          amount = Number(bill.security_fee || 0) + Number(bill.trash_fee || 0)
+        } else if (category === 'kas') {
+          amount = Number(bill.treasury_fee || 0)
+        } else {
+          amount = Number(bill.total_amount || 0)
+        }
+
         statuses[month] = {
           status: bill.status,
-          amount: Number(bill.total_amount || 0)
+          amount: amount
         }
+        
         if (bill.status !== 'PAID') {
-          totalTunggakan += Number(bill.total_amount || 0)
+          totalTunggakan += amount
         }
       }
     })
@@ -127,8 +147,20 @@ export default async function RekapTahunanPage({ searchParams }: { searchParams:
             <p className="text-slate-500 text-sm mt-1">Status pembayaran tagihan seluruh warga dari bulan Januari hingga Desember.</p>
           </div>
           
-          <div className="flex flex-wrap gap-2 items-center">
-            <form className="flex items-center gap-2">
+          <div className="flex flex-wrap gap-2 items-center w-full md:w-auto">
+            <form className="flex flex-wrap items-center gap-2 w-full md:w-auto">
+              <select name="cat" defaultValue={category} className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium">
+                <option value="all">Semua Kategori</option>
+                <option value="air">Air</option>
+                <option value="keamanan_sampah">Keamanan & Sampah</option>
+                <option value="kas">Kas RT</option>
+              </select>
+              <select name="blok" defaultValue={filterBlok} className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium">
+                <option value="all">Semua Blok</option>
+                <option value="A">Blok A</option>
+                <option value="B">Blok B</option>
+                <option value="K">Komersil</option>
+              </select>
               <select name="year" defaultValue={targetYear} className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-bold">
                 {[targetYear - 2, targetYear - 1, targetYear, targetYear + 1].map(y => (
                   <option key={y} value={y}>{y}</option>
@@ -166,9 +198,9 @@ export default async function RekapTahunanPage({ searchParams }: { searchParams:
           </div>
 
           <div className="mb-4 flex flex-wrap gap-4 text-xs font-medium text-slate-500 justify-center print:justify-start">
-            <span className="flex items-center gap-1"><span className="text-emerald-500 text-base">✅</span> = Lunas (PAID)</span>
-            <span className="flex items-center gap-1"><span className="text-rose-500 text-base">❌</span> = Belum Lunas (UNPAID/PENDING)</span>
-            <span className="flex items-center gap-1"><span className="text-slate-300 text-base">-</span> = Belum ada tagihan</span>
+            <span className="flex items-center gap-1"><span className="text-slate-700 font-bold">50.000</span> = Lunas (Sesuai Nominal)</span>
+            <span className="flex items-center gap-1"><span className="text-rose-400 font-bold">0</span> = Belum Lunas (UNPAID/PENDING)</span>
+            <span className="flex items-center gap-1"><span className="text-slate-300 font-bold">-</span> = Belum ada tagihan</span>
           </div>
 
           {/* Rincian Matriks */}
@@ -202,15 +234,15 @@ export default async function RekapTahunanPage({ searchParams }: { searchParams:
                       {months.map((_, mIdx) => {
                         const monthNum = mIdx + 1
                         const statusData = item.statuses[monthNum]
-                        let icon = <span className="text-slate-300">-</span>
+                        let content = <span className="text-slate-300">-</span>
                         if (statusData.status === 'PAID') {
-                          icon = <span className="text-emerald-500">✅</span>
+                          content = <span className="text-slate-700 font-semibold">{statusData.amount.toLocaleString('id-ID')}</span>
                         } else if (statusData.status !== 'NO_BILL') {
-                          icon = <span className="text-rose-500" title={`Rp ${statusData.amount.toLocaleString('id-ID')}`}>❌</span>
+                          content = <span className="text-rose-400 font-medium" title={`Tunggakan: Rp ${statusData.amount.toLocaleString('id-ID')}`}>0</span>
                         }
                         return (
                           <td key={monthNum} className="p-2 text-center border-r border-slate-200">
-                            {icon}
+                            {content}
                           </td>
                         )
                       })}

@@ -37,10 +37,17 @@ export async function GET(request: Request) {
 
   const fees = settings?.value || { water: 50000, trash: 30000, security: 75000, treasury: 20000 }
 
-  const { data: wargaProfiles } = await adminClient
+  const { data: allWargaProfiles } = await adminClient
     .from('profiles')
     .select('*')
     .eq('role', 'user')
+
+  const targetUserIds = searchParams.has('userIds') ? searchParams.get('userIds')!.split(',') : []
+  
+  // Filter for specific users if provided, otherwise use all users
+  const wargaProfiles = targetUserIds.length > 0 
+    ? allWargaProfiles?.filter(p => targetUserIds.includes(p.id)) 
+    : allWargaProfiles
 
   if (wargaProfiles && wargaProfiles.length > 0) {
     const newBills = wargaProfiles.map(p => ({
@@ -192,7 +199,7 @@ export async function GET(request: Request) {
 
   // 4. Send Summary Report to Admin Telegram Chat ID if configured
   const adminChatId = process.env.TELEGRAM_ADMIN_CHAT_ID
-  if (adminChatId) {
+  if (adminChatId && !searchParams.has('userIds')) {
     const sudahBayarCount = (wargaProfiles || []).filter(w => {
       const cb = allBills?.find(b => (b.profile_id === w.id || b.user_id === w.id) && b.period_month === currentMonth && b.period_year === currentYear)
       return cb?.status === 'PAID'

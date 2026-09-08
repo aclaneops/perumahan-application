@@ -33,6 +33,12 @@ export default async function PengaturanPage({
 
   const fees = settings?.value || { water: 0, trash: 0, security: 0, treasury: 0 }
 
+  const { data: residents } = await adminClient
+    .from('profiles')
+    .select('id, full_name, house_number')
+    .eq('role', 'user')
+    .order('house_number', { ascending: true })
+
   return (
     <div className="min-h-screen bg-slate-50 flex">
       {/* Sidebar */}
@@ -124,9 +130,9 @@ export default async function PengaturanPage({
 
           {/* Form Buat Tagihan */}
           <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-8 h-fit">
-            <h2 className="text-xl font-semibold text-slate-800 mb-6">Buat Tagihan Masal</h2>
+            <h2 className="text-xl font-semibold text-slate-800 mb-6">Buat Tagihan Masal / Spesifik</h2>
             <div className="bg-blue-50 border border-blue-200 text-blue-800 p-4 rounded-lg mb-6">
-              <p className="font-medium text-sm">Tombol di bawah ini akan membuat tagihan baru untuk <strong>semua warga terdaftar</strong> pada bulan berjalan, menggunakan nominal biaya yang tersimpan di pengaturan.</p>
+              <p className="font-medium text-sm">Tombol di bawah ini akan membuat tagihan baru untuk <strong>warga yang dipilih</strong> pada bulan berjalan, menggunakan nominal biaya yang tersimpan di pengaturan.</p>
             </div>
             
             <form action="/api/admin/settings" method="post" className="space-y-6">
@@ -144,6 +150,21 @@ export default async function PengaturanPage({
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-2">Tahun</label>
                   <input type="number" name="year" defaultValue={new Date().getFullYear()} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-lg" />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">Pilih Warga (Biarkan kosong untuk kirim ke SEMUA warga)</label>
+                <div className="max-h-48 overflow-y-auto border border-slate-200 rounded-lg p-3 space-y-1 bg-slate-50">
+                  {residents?.map(resident => (
+                    <label key={resident.id} className="flex items-center gap-3 p-2 hover:bg-white rounded border border-transparent hover:border-slate-200 transition cursor-pointer">
+                      <input type="checkbox" name="userIds" value={resident.id} className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 border-slate-300" />
+                      <div>
+                        <div className="text-sm font-medium text-slate-800">{resident.full_name}</div>
+                        <div className="text-xs text-slate-500">Blok {resident.house_number}</div>
+                      </div>
+                    </label>
+                  ))}
                 </div>
               </div>
 

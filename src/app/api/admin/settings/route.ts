@@ -38,6 +38,7 @@ export async function POST(request: Request) {
   if (action === 'generate_bills') {
     const month = formData.get('month')
     const year = formData.get('year')
+    const userIds = formData.getAll('userIds') as string[]
     
     // Delegate to /api/cron: it generates bills AND sends the
     // Telegram notifications (new bill, H-5, due date, overdue). This keeps
@@ -46,6 +47,7 @@ export async function POST(request: Request) {
     const cronUrl = new URL('/api/cron', request.url)
     if (month) cronUrl.searchParams.set('month', month.toString())
     if (year) cronUrl.searchParams.set('year', year.toString())
+    if (userIds.length > 0) cronUrl.searchParams.set('userIds', userIds.join(','))
 
     const cronRes = await fetch(cronUrl, {
       headers: cronSecret ? { Authorization: `Bearer ${cronSecret}` } : {}

@@ -3,6 +3,7 @@ import { createAdminClient } from '@/utils/supabase/admin'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import DeleteWargaButton from './DeleteWargaButton'
+import ImportWargaModal from './ImportWargaModal'
 
 export const dynamic = 'force-dynamic'
 
@@ -63,14 +64,17 @@ export default async function ManageWargaPage() {
 
       {/* Main Content */}
       <main className="flex-1 p-4 md:p-8 overflow-y-auto">
-        <header className="mb-8 flex justify-between items-center">
+        <header className="mb-8 flex justify-between items-center flex-wrap gap-4">
           <div>
             <h1 className="text-3xl font-bold text-slate-800">Daftar Warga</h1>
             <p className="text-slate-500 text-sm mt-1">Kelola data warga perumahan & status tautan Telegram</p>
           </div>
-          <Link href="/admin/warga/tambah" className="bg-blue-600 text-white px-5 py-2.5 rounded-lg font-medium hover:bg-blue-700 transition shadow-sm text-sm">
-            + Tambah Warga
-          </Link>
+          <div className="flex gap-2">
+            <ImportWargaModal />
+            <Link href="/admin/warga/tambah" className="bg-blue-600 text-white px-5 py-2.5 rounded-lg font-medium hover:bg-blue-700 transition shadow-sm text-sm">
+              + Tambah Warga
+            </Link>
+          </div>
         </header>
 
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
