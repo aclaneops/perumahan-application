@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import TelegramPairingWidget from './TelegramPairingWidget'
 import ChangePasswordWidget from './ChangePasswordWidget'
+import AutoRefreshResident from '@/components/AutoRefreshResident'
 
 export const dynamic = 'force-dynamic'
 
@@ -25,13 +26,15 @@ export default async function UserDashboard() {
 
   const [
     { data: profile },
-    { data: residentBills },
-    { data: residentPayments }
+    { data: residentBills }
   ] = await Promise.all([
     adminClient.from('profiles').select('*').eq('id', user.id).maybeSingle(),
     adminClient.from('bills').select('*, payments(*)').or(`profile_id.eq.${user.id},user_id.eq.${user.id}`).order('period_year', { ascending: false }).order('period_month', { ascending: false }),
-    adminClient.from('payments').select('*').or(`profile_id.eq.${user.id},user_id.eq.${user.id}`).order('created_at', { ascending: false })
   ])
+
+  // Extract payments from bills
+  const residentPayments = residentBills?.flatMap(b => b.payments || []) || []
+  residentPayments.sort((a, b) => new Date(b.created_at || b.paid_at || 0).getTime() - new Date(a.created_at || a.paid_at || 0).getTime())
 
   // Current month bill
   const currentBill = residentBills?.find(b => b.period_month === currentMonth && b.period_year === currentYear)
@@ -47,6 +50,7 @@ export default async function UserDashboard() {
 
   return (
     <div className="min-h-screen bg-slate-50 pb-12">
+      <AutoRefreshResident userId={user.id} />
       {/* Navbar */}
       <nav className="bg-white border-b border-slate-200 px-6 py-4 flex justify-between items-center sticky top-0 z-10 shadow-sm">
         <div className="flex items-center space-x-3">
@@ -140,7 +144,7 @@ export default async function UserDashboard() {
                       </div>
                       
                       <Link 
-                        href={`/dashboard/upload?billId=${p.billId}&total=${p.amount}`}
+                        href={`/dashboard/upload?billId=${p.billId}&total=${p.amount}&water=${p.water_fee}&trash=${p.trash_fee}&sec=${p.security_fee}&trea=${p.treasury_fee}`}
                         className={`inline-flex items-center px-4 py-2 rounded-lg text-sm font-bold transition shadow-sm
                           ${isPending 
                             ? 'bg-amber-100 text-amber-700 border border-amber-200 pointer-events-none cursor-not-allowed' 

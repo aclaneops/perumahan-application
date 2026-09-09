@@ -40,7 +40,7 @@ export default async function KeuanganPage({ searchParams }: { searchParams: { s
   transactions?.forEach(t => {
     const tDate = new Date(t.date)
     if (tDate.getMonth() + 1 === currentMonth && tDate.getFullYear() === currentYear) {
-      if (t.type === 'INCOME') totalIncomeThisMonth += Number(t.amount)
+      if (t.type === 'INCOME' && t.category !== 'Pembayaran Iuran') totalIncomeThisMonth += Number(t.amount)
       if (t.type === 'EXPENSE') totalExpenseThisMonth += Number(t.amount)
     }
   })

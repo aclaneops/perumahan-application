@@ -35,6 +35,9 @@ export default async function LaporanPage({ searchParams }: { searchParams: { mo
     .select('*, bills(*)')
     .not('validated_by', 'is', null) // Hanya yang sudah divalidasi/PAID
 
+  const { data: allProfiles } = await adminClient.from('profiles').select('id, full_name, house_number')
+  const profileMap = new Map(allProfiles?.map(p => [p.id, p]) || [])
+
   let totalIuran = 0
   const iuranList: any[] = []
 
@@ -42,11 +45,27 @@ export default async function LaporanPage({ searchParams }: { searchParams: { mo
     // Kita gunakan payment.paid_at atau created_at sebagai waktu masuknya kas
     const pDate = new Date(payment.paid_at || payment.created_at)
     if (pDate.getMonth() + 1 === targetMonth && pDate.getFullYear() === targetYear) {
-      totalIuran += Number(payment.amount || payment.bills?.total_amount || 0)
+      const amount = Number(payment.amount || payment.bills?.total_amount || 0)
+      totalIuran += amount
+      
+      const profileId = payment.bills?.profile_id || payment.bills?.user_id
+      const p = profileMap.get(profileId)
+      const nameStr = p ? `${p.full_name} (${p.house_number})` : 'Warga'
+      
+      let itemsStr = ''
+      if (payment.covered_items) {
+        const arr = []
+        if (payment.covered_items.water) arr.push('Air')
+        if (payment.covered_items.trash) arr.push('Sampah')
+        if (payment.covered_items.security) arr.push('Keamanan')
+        if (payment.covered_items.treasury) arr.push('Kas')
+        if (arr.length > 0) itemsStr = ` (Item: ${arr.join(', ')})`
+      }
+
       iuranList.push({
         date: pDate,
-        category: `Iuran Warga - Bulan ${payment.bills?.period_month}/${payment.bills?.period_year}`,
-        amount: Number(payment.amount || payment.bills?.total_amount || 0),
+        category: `Iuran Warga - Bulan ${payment.bills?.period_month}/${payment.bills?.period_year} dari ${nameStr}${itemsStr}`,
+        amount: amount,
         type: 'INCOME'
       })
     }
@@ -65,15 +84,17 @@ export default async function LaporanPage({ searchParams }: { searchParams: { mo
   transactions?.forEach(t => {
     const tDate = new Date(t.date)
     if (tDate.getMonth() + 1 === targetMonth && tDate.getFullYear() === targetYear) {
-      if (t.type === 'INCOME') totalPemasukanLain += Number(t.amount)
+      if (t.type === 'INCOME' && t.category !== 'Pembayaran Iuran') totalPemasukanLain += Number(t.amount)
       if (t.type === 'EXPENSE') totalPengeluaran += Number(t.amount)
       
-      transactionList.push({
-        date: tDate,
-        category: t.category + (t.description ? ` (${t.description})` : ''),
-        amount: Number(t.amount),
-        type: t.type
-      })
+      if (t.category !== 'Pembayaran Iuran') {
+        transactionList.push({
+          date: tDate,
+          category: t.category + (t.description ? ` (${t.description})` : ''),
+          amount: Number(t.amount),
+          type: t.type
+        })
+      }
     }
   })
 

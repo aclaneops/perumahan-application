@@ -12,6 +12,7 @@ function UploadForm() {
   const [scanning, setScanning] = useState(false)
   const [ocrMessage, setOcrMessage] = useState('')
   const [error, setError] = useState('')
+  const [notes, setNotes] = useState('')
   const router = useRouter()
   const searchParams = useSearchParams()
   const billId = searchParams.get('billId')
@@ -38,7 +39,8 @@ function UploadForm() {
     (coveredItems.treasury ? treaFee : 0)
 
   const isPartial = Number(amountPaid) > 0 && Number(amountPaid) < Number(totalParam)
-  const isSelectedSumValid = selectedSum === Number(amountPaid)
+  const isSelectedSumValid = selectedSum > 0 && selectedSum <= Number(amountPaid)
+  const remainder = Number(amountPaid) - selectedSum
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const selectedFile = e.target.files?.[0] || null
@@ -82,7 +84,11 @@ function UploadForm() {
     if (!file || !billId) return
 
     if (isPartial && !isSelectedSumValid) {
-      setError(`Total item yang dipilih (Rp ${selectedSum.toLocaleString('id-ID')}) tidak sama dengan nominal transfer (Rp ${Number(amountPaid).toLocaleString('id-ID')}). Harap sesuaikan centang item.`)
+      if (selectedSum === 0) {
+        setError(`Silakan centang minimal satu item yang ingin dibayar.`)
+      } else {
+        setError(`Total item yang dipilih (Rp ${selectedSum.toLocaleString('id-ID')}) melebihi nominal transfer (Rp ${Number(amountPaid).toLocaleString('id-ID')}). Harap kurangi centang item.`)
+      }
       return
     }
 
@@ -96,7 +102,7 @@ function UploadForm() {
       formData.append('amountPaid', amountPaid)
       
       if (isPartial) {
-        formData.append('coveredItems', JSON.stringify(coveredItems))
+        formData.append('coveredItems', JSON.stringify({...coveredItems, notes}))
       } else {
         // If paid in full (or more), all items are considered covered
         formData.append('coveredItems', JSON.stringify({
@@ -203,12 +209,32 @@ function UploadForm() {
               </label>
             </div>
             
-            <div className={`mt-4 pt-3 border-t flex justify-between items-center text-sm font-bold ${isSelectedSumValid ? 'text-emerald-600' : 'text-rose-600'}`}>
-              <span>Total Dipilih:</span>
-              <span>Rp {selectedSum.toLocaleString('id-ID')}</span>
+            
+            <div className={`mt-4 pt-3 border-t flex flex-col gap-1 text-sm ${isSelectedSumValid ? 'text-emerald-600' : 'text-rose-600'}`}>
+              <div className="flex justify-between font-bold">
+                <span>Total Dipilih:</span>
+                <span>Rp {selectedSum.toLocaleString('id-ID')}</span>
+              </div>
+              {remainder > 0 && isSelectedSumValid && (
+                <div className="flex justify-between text-xs text-amber-600 font-medium">
+                  <span>Sisa (Otomatis masuk ke Saldo Lebih Bayar):</span>
+                  <span>+ Rp {remainder.toLocaleString('id-ID')}</span>
+                </div>
+              )}
             </div>
           </div>
         )}
+
+        <div>
+          <label className="block text-sm font-medium text-slate-700 mb-2">Keterangan (Opsional)</label>
+          <textarea 
+            rows={2}
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            placeholder="Contoh: Rumah kosong, dll."
+            className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition" 
+          ></textarea>
+        </div>
 
         <div className="border-2 border-dashed border-slate-300 rounded-xl p-8 text-center hover:bg-slate-50 transition cursor-pointer relative">
           <input 

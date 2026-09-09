@@ -3,6 +3,7 @@ import { createAdminClient } from '@/utils/supabase/admin'
 import { calculateResidentDues, getLevelMetadata } from '@/lib/dues'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
+import AutoRefreshAdmin from '@/components/AutoRefreshAdmin'
 
 export const dynamic = 'force-dynamic'
 
@@ -164,6 +165,7 @@ export default async function AdminDashboard({ searchParams }: { searchParams: {
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col md:flex-row">
+      <AutoRefreshAdmin />
       {/* Sidebar */}
       <aside className="w-full md:w-64 bg-slate-900 text-white flex flex-col flex-shrink-0">
         <div className="p-6">
@@ -440,6 +442,12 @@ export default async function AdminDashboard({ searchParams }: { searchParams: {
                             {item.coveredItems.trash && <div className="flex justify-between"><span>Kebersihan</span><span>✅</span></div>}
                             {item.coveredItems.water && <div className="flex justify-between"><span>Air</span><span>✅</span></div>}
                             {item.coveredItems.treasury && <div className="flex justify-between"><span>Kas RT</span><span>✅</span></div>}
+                            {item.coveredItems.notes && (
+                              <div className="mt-1 pt-1 border-t border-slate-200">
+                                <span className="font-bold block text-[9px] text-slate-500">Keterangan Warga:</span>
+                                <span className="italic text-slate-700">{item.coveredItems.notes}</span>
+                              </div>
+                            )}
                           </div>
                         )}
                       </td>
@@ -459,6 +467,14 @@ export default async function AdminDashboard({ searchParams }: { searchParams: {
                               <input type="hidden" name="action" value="approve" />
                               <button type="submit" className="bg-green-100 text-green-700 px-3 py-1.5 rounded-md hover:bg-green-200 transition font-medium text-xs">✅ Terima</button>
                             </form>
+                            {Number(item.amount) < Number(item.totalBill) && (
+                              <form action="/api/admin/validate" method="POST" className="inline-block">
+                                <input type="hidden" name="billId" value={item.billId} />
+                                <input type="hidden" name="paymentId" value={item.paymentId} />
+                                <input type="hidden" name="action" value="approve_exempt" />
+                                <button type="submit" className="bg-emerald-600 text-white px-3 py-1.5 rounded-md hover:bg-emerald-700 transition font-medium text-xs shadow-sm" title="Terima pembayaran dan anggap lunas sisa tagihannya">✅ Terima & Lunas</button>
+                              </form>
+                            )}
                             <form action="/api/admin/validate" method="POST" className="inline-block">
                               <input type="hidden" name="billId" value={item.billId} />
                               <input type="hidden" name="paymentId" value={item.paymentId} />

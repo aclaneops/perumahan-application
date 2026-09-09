@@ -15,6 +15,10 @@ export interface OverdueInfo {
     amount: number
     status: string
     billId: string
+    water_fee: number
+    trash_fee: number
+    security_fee: number
+    treasury_fee: number
   }[]
   currentMonthBillStatus: string | null
 }
@@ -105,7 +109,11 @@ export function calculateResidentDues(bills: any[], currentMonth: number, curren
     monthName: MONTH_NAMES[b.period_month - 1] || `Bulan ${b.period_month}`,
     amount: Number(b.total_amount || 0),
     status: b.status,
-    billId: b.id
+    billId: b.id,
+    water_fee: Number(b.water_fee || 0),
+    trash_fee: Number(b.trash_fee || 0),
+    security_fee: Number(b.security_fee || 0),
+    treasury_fee: Number(b.treasury_fee || 0)
   }))
 
   const overdueMonthsCount = overduePeriods.length
