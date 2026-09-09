@@ -141,7 +141,7 @@ export async function POST(request: Request) {
               bill_id: unpaid.id,
               profile_id: profileId,
               amount: unpaidTotal,
-              payment_proof_url: payment?.payment_proof_url || payment?.proof_url,
+              payment_proof_url: payment?.payment_proof_url,
               validated_by: user.id,
               validated_at: new Date().toISOString()
             })
