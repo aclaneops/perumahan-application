@@ -7,7 +7,9 @@ import TelegramPairingWidget from './TelegramPairingWidget'
 import ChangePasswordWidget from './ChangePasswordWidget'
 import AutoRefreshResident from '@/components/AutoRefreshResident'
 
-export const dynamic = 'force-dynamic'
+export const dynamic = "force-dynamic"
+export const revalidate = 0
+export const fetchCache = "force-no-store"
 
 export default async function UserDashboard() {
   const supabase = createClient()
@@ -43,6 +45,9 @@ export default async function UserDashboard() {
   const isPending = currentBill?.status === 'PENDING_CONFIRMATION' || currentBill?.status === 'PENDING'
   const isPartial = currentBill?.status === 'PARTIAL'
   const isUnpaid = !currentBill || currentBill?.status === 'UNPAID'
+
+  // Check if ANY bill is pending to prevent multiple uploads at the same time
+  const hasAnyPending = residentBills?.some(b => b.status === 'PENDING_CONFIRMATION' || b.status === 'PENDING')
 
   // Calculate dues
   const duesInfo = calculateResidentDues(residentBills || [], currentMonth, currentYear)
@@ -143,22 +148,26 @@ export default async function UserDashboard() {
                         <div className="text-rose-700 font-extrabold mt-0.5">Rp {p.amount.toLocaleString('id-ID')}</div>
                       </div>
                       
-                      <Link 
-                        href={`/dashboard/upload?billId=${p.billId}&total=${p.amount}&water=${p.water_fee}&trash=${p.trash_fee}&sec=${p.security_fee}&trea=${p.treasury_fee}`}
-                        className={`inline-flex items-center px-4 py-2 rounded-lg text-sm font-bold transition shadow-sm
-                          ${isPending 
-                            ? 'bg-amber-100 text-amber-700 border border-amber-200 pointer-events-none cursor-not-allowed' 
-                            : isPartial 
-                            ? 'bg-orange-100 text-orange-700 border border-orange-200 hover:bg-orange-200' 
-                            : 'bg-rose-600 text-white hover:bg-rose-700 hover:shadow-md'
+                      {isPending ? (
+                        <div className="p-3 bg-green-50 text-green-700 rounded-lg border border-green-200 text-sm font-medium text-center shadow-sm">
+                          Bukti berhasil diupload. Menunggu verifikasi admin...
+                        </div>
+                      ) : hasAnyPending ? (
+                        <div className="p-3 bg-amber-50 text-amber-700 rounded-lg border border-amber-200 text-sm font-medium text-center shadow-sm">
+                          Menunggu validasi pembayaran lainnya...
+                        </div>
+                      ) : (
+                        <Link 
+                          href={`/dashboard/upload?billId=${p.billId}&total=${p.amount}&water=${p.water_fee}&trash=${p.trash_fee}&sec=${p.security_fee}&trea=${p.treasury_fee}`}
+                          className={`inline-flex items-center px-4 py-2 rounded-lg text-sm font-bold transition shadow-sm ${
+                            isPartial 
+                              ? 'bg-orange-100 text-orange-700 border border-orange-200 hover:bg-orange-200' 
+                              : 'bg-rose-600 text-white hover:bg-rose-700 hover:shadow-md'
                           }`}
-                      >
-                        {isPending 
-                          ? '⏳ Menunggu Validasi' 
-                          : isPartial 
-                          ? '⚠️ Upload Sisa Pembayaran' 
-                          : '📤 Upload Bukti Bayar'}
-                      </Link>
+                        >
+                          {isPartial ? '⚠️ Upload Sisa Pembayaran' : '📤 Upload Bukti Bayar'}
+                        </Link>
+                      )}
                     </div>
                   )
                 })}
@@ -219,20 +228,28 @@ export default async function UserDashboard() {
                   : 'Silakan transfer ke rekening perumahan dan unggah buktinya di sini.'}
               </p>
               
-              <Link 
-                href={currentBill ? `/dashboard/upload?billId=${currentBill.id}&total=${currentBill.total_amount || 0}&water=${currentBill.water_fee || 0}&trash=${currentBill.trash_fee || 0}&sec=${currentBill.security_fee || 0}&trea=${currentBill.treasury_fee || 0}` : '#'} 
-                className={`block w-full py-3.5 px-4 bg-white text-center text-blue-600 rounded-xl font-bold text-sm transition shadow-xl shadow-blue-900/20 hover:scale-[1.02] ${(!currentBill || isPaid || isPending) ? 'opacity-50 pointer-events-none cursor-not-allowed' : ''}`}
-              >
-                {!currentBill 
-                  ? '🔒 Tagihan Belum Diterbitkan'
-                  : isPaid 
-                  ? '✅ Sudah Lunas' 
-                  : isPending 
-                  ? '⏳ Menunggu Validasi Admin' 
-                  : isPartial 
-                  ? '⚠️ Lunasi Sisa Tagihan' 
-                  : '📤 Upload Bukti Sekarang'}
-              </Link>
+              {(!currentBill || isPaid || hasAnyPending) ? (
+                isPending ? (
+                  <div className="block w-full py-3.5 px-4 bg-green-50 text-center text-green-700 rounded-xl font-bold text-sm shadow-sm border border-green-200">
+                    Bukti berhasil diupload. Menunggu verifikasi admin...
+                  </div>
+                ) : hasAnyPending ? (
+                  <div className="block w-full py-3.5 px-4 bg-amber-50 text-center text-amber-700 rounded-xl font-bold text-sm shadow-sm border border-amber-200">
+                    Menunggu validasi pembayaran lainnya...
+                  </div>
+                ) : (
+                  <div className="block w-full py-3.5 px-4 bg-white/20 text-center text-blue-50 rounded-xl font-bold text-sm shadow-inner border border-white/20">
+                    {!currentBill ? '🔒 Tagihan Belum Diterbitkan' : '✅ Sudah Lunas'}
+                  </div>
+                )
+              ) : (
+                <Link 
+                  href={`/dashboard/upload?billId=${currentBill.id}&total=${currentBill.total_amount || 0}&water=${currentBill.water_fee || 0}&trash=${currentBill.trash_fee || 0}&sec=${currentBill.security_fee || 0}&trea=${currentBill.treasury_fee || 0}`} 
+                  className="block w-full py-3.5 px-4 bg-white text-center text-blue-600 rounded-xl font-bold text-sm transition shadow-xl shadow-blue-900/20 hover:scale-[1.02]"
+                >
+                  {isPartial ? '⚠️ Lunasi Sisa Tagihan' : '📤 Upload Bukti Sekarang'}
+                </Link>
+              )}
             </div>
 
             {/* Telegram Pairing Widget */}

@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { revalidatePath } from "next/cache"
 import { createAdminClient } from '@/utils/supabase/admin'
 import { createClient } from '@/utils/supabase/server'
 import { sendTelegramMessage, formatNewPaymentSubmittedMessage } from '@/lib/telegram'
@@ -109,11 +110,15 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: `Gagal menyimpan data pembayaran: ${insertError.message}` }, { status: 500 })
     }
 
-    // Update bill status to PENDING_CONFIRMATION
-    await adminClient
+    // Update bill status to PENDING
+    const { error: updateError } = await adminClient
       .from('bills')
-      .update({ status: 'PENDING_CONFIRMATION' })
+      .update({ status: 'PENDING' })
       .eq('id', billId)
+      
+    if (updateError) {
+      console.error('Error updating bill status:', updateError)
+    }
 
     // Overpayment is now handled by the cron job validation for arrears calculation
 
@@ -137,6 +142,7 @@ export async function POST(request: Request) {
       await sendTelegramMessage(adminChatId, msg)
     }
 
+    revalidatePath("/dashboard")
     return NextResponse.json({ success: true, url: publicUrl })
   } catch (error: any) {
     console.error('Unexpected error:', error)

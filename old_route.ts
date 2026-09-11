@@ -4,84 +4,6 @@ import { NextResponse } from 'next/server'
 import { sendTelegramMessage, formatPaymentConfirmedMessage, formatPaymentPartialMessage, formatPaymentRejectedMessage } from '@/lib/telegram'
 import { MONTH_NAMES } from '@/lib/dues'
 
-async function fetchImageAsBase64(url: string) {
-  try {
-    const res = await fetch(url)
-    if (!res.ok) throw new Error('Failed to fetch image')
-    const buffer = await res.arrayBuffer()
-    return {
-      data: Buffer.from(buffer).toString('base64'),
-      mimeType: res.headers.get('content-type') || 'image/jpeg'
-    }
-  } catch (e) {
-    console.error('Error fetching image:', e)
-    return null
-  }
-}
-
-async function analyzeReceiptWithGemini(base64Data: string, mimeType: string) {
-  const apiKey = process.env.GEMINI_API_KEY
-  if (!apiKey) throw new Error('GEMINI_API_KEY not configured')
-
-  const prompt = `Anda adalah asisten verifikasi keuangan yang sangat teliti.
-Tugas Anda adalah membaca gambar struk bukti transfer/pembayaran ini dan mengekstrak informasi dengan tepat.
-Jika gambar terlihat seperti editan Photoshop, manipulasi teks, atau BUKAN struk/bukti transfer asli (misalnya gambar pemandangan, selfie, atau layar kosong), set is_fake ke true.
-Jawab HANYA dengan JSON murni tanpa markdown, dengan format:
-{
-  "nominal": 150000,
-  "tanggal": "2024-03-05", 
-  "is_fake": false,
-  "alasan_fake": "penjelasan singkat jika fake, atau kosong"
-}
-Catatan:
-- nominal adalah angka saja tanpa titik/koma (number). Jika tidak terbaca, set 0.
-- tanggal gunakan format YYYY-MM-DD. Jika tidak terbaca/tidak ada, set null.
-- is_fake boolean.`
-
-  const requestBody = {
-    contents: [{
-      parts: [
-        { text: prompt },
-        { inlineData: { mimeType, data: base64Data } }
-      ]
-    }],
-    generationConfig: {
-      temperature: 0.1,
-      responseMimeType: 'application/json'
-    }
-  }
-
-  const models = ['gemini-3.6-flash', 'gemini-3.5-flash-lite']
-  let lastError = null
-
-  for (const model of models) {
-    try {
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(requestBody)
-      })
-
-      if (!res.ok) {
-        throw new Error(`Gemini API Error: ${res.status} ${res.statusText}`)
-      }
-
-      const data = await res.json()
-      if (data.candidates && data.candidates.length > 0) {
-        const text = data.candidates[0].content.parts[0].text
-        const cleanJson = text.replace(/```json\n/g, '').replace(/```/g, '').trim()
-        return JSON.parse(cleanJson)
-      }
-    } catch (err: any) {
-      console.warn(`Model ${model} failed:`, err.message)
-      lastError = err
-    }
-  }
-
-  throw lastError || new Error('All models failed')
-}
-
 export async function POST(request: Request) {
   const supabase = createClient()
   const formData = await request.formData()
@@ -94,68 +16,15 @@ export async function POST(request: Request) {
 
   const adminClient = createAdminClient()
 
-
-  if (action === 'approve' || action === 'approve_exempt' || action === 'auto_verify') {
+  if (action === 'approve' || action === 'approve_exempt') {
     // 1. Fetch the payment being approved
-    const { data: payment, error: paymentError } = await adminClient.from('payments').select('amount, payment_proof_url, covered_items').eq('id', paymentId).single()
-    if (paymentError) console.error('[VALIDATE] Payment fetch error:', paymentError.message)
-    console.log(`[VALIDATE] Payment raw data:`, JSON.stringify(payment))
+    const { data: payment } = await adminClient.from('payments').select('amount, payment_proof_url, covered_items').eq('id', paymentId).single()
     const thisAmount = Number(payment?.amount || 0)
-
-    if (action === 'auto_verify') {
-      const proofUrl = payment?.payment_proof_url
-      if (!proofUrl) {
-        return NextResponse.redirect(new URL(`/admin/dashboard?msg=${encodeURIComponent('Gagal: Bukti pembayaran tidak ditemukan.')}`, request.url), { status: 302 })
-      }
-      
-      try {
-        const imgData = await fetchImageAsBase64(proofUrl)
-        if (!imgData) {
-          return NextResponse.redirect(new URL(`/admin/dashboard?msg=${encodeURIComponent('Gagal: Tidak dapat mengunduh gambar bukti pembayaran.')}`, request.url), { status: 302 })
-        }
-        
-        const aiResult = await analyzeReceiptWithGemini(imgData.data, imgData.mimeType)
-        
-        if (aiResult.is_fake) {
-          return NextResponse.redirect(new URL(`/admin/dashboard?msg=${encodeURIComponent('Ditolak AI: Indikasi bukti palsu/editan. ' + (aiResult.alasan_fake || ''))}`, request.url), { status: 302 })
-        }
-        
-        if (aiResult.tanggal) {
-          const receiptDate = new Date(aiResult.tanggal)
-          const now = new Date()
-          const diffDays = Math.floor((now.getTime() - receiptDate.getTime()) / (1000 * 3600 * 24))
-          if (diffDays > 7) {
-             return NextResponse.redirect(new URL(`/admin/dashboard?msg=${encodeURIComponent(`Ditolak AI: Tanggal struk sudah kedaluwarsa/lama (${aiResult.tanggal}, >7 hari). Mohon verifikasi manual.`)}`, request.url), { status: 302 })
-          }
-        }
-
-        const { data: billData } = await adminClient.from('bills').select('water_fee, trash_fee, security_fee, treasury_fee').eq('id', billId).single()
-        const billOriginalTotal = Number(billData?.water_fee || 0) + Number(billData?.trash_fee || 0) + Number(billData?.security_fee || 0) + Number(billData?.treasury_fee || 0)
-        
-        if (aiResult.nominal < billOriginalTotal && aiResult.nominal < thisAmount) {
-           return NextResponse.redirect(new URL(`/admin/dashboard?msg=${encodeURIComponent(`Ditolak AI: Nominal di struk (Rp ${aiResult.nominal.toLocaleString('id-ID')}) kurang dari tagihan/pembayaran.`)}`, request.url), { status: 302 })
-        }
-
-        // Proceed using the user's submitted amount
-        // thisAmount = aiResult.nominal (DO NOT DO THIS)
-      } catch (err: any) {
-        return NextResponse.redirect(new URL(`/admin/dashboard?msg=${encodeURIComponent('Gagal verifikasi AI: ' + err.message)}`, request.url), { status: 302 })
-      }
-    }
-
 
     // 2. Fetch bill info
     const { data: bill } = await adminClient.from('bills').select('*').eq('id', billId).single()
     const profileId = bill?.profile_id || bill?.user_id
     const billOriginalTotal = Number(bill.total_amount || 0)
-
-    console.log(`[VALIDATE] === MULAI VALIDASI ===`)
-    console.log(`[VALIDATE] action=${action}, billId=${billId}, paymentId=${paymentId}`)
-    console.log(`[VALIDATE] thisAmount (dari payment)=${thisAmount}`)
-    console.log(`[VALIDATE] bill.total_amount=${bill?.total_amount}, billOriginalTotal=${billOriginalTotal}`)
-    console.log(`[VALIDATE] bill.water_fee=${bill?.water_fee}, bill.trash_fee=${bill?.trash_fee}, bill.security_fee=${bill?.security_fee}, bill.treasury_fee=${bill?.treasury_fee}`)
-    console.log(`[VALIDATE] profileId=${profileId}, bill.profile_id=${bill?.profile_id}, bill.user_id=${bill?.user_id}`)
-    console.log(`[VALIDATE] covered_items=`, JSON.stringify(payment?.covered_items))
 
     // 3. Calculate remaining money and deduct fees
     let remainingAmount = thisAmount
@@ -175,9 +44,6 @@ export async function POST(request: Request) {
       newWater = 0; newTrash = 0; newSecurity = 0; newTreasury = 0;
       paidItemsStrArr.push('Tagihan Bulanan')
     }
-
-    console.log(`[VALIDATE] Setelah potong: remainingAmount=${remainingAmount}`)
-    console.log(`[VALIDATE] newWater=${newWater}, newTrash=${newTrash}, newSecurity=${newSecurity}, newTreasury=${newTreasury}`)
 
     const itemsPaidStr = paidItemsStrArr.length > 0 ? paidItemsStrArr.join(', ') : 'Tagihan'
 
@@ -217,7 +83,6 @@ export async function POST(request: Request) {
 
     // Amount actually used for this primary bill (to fix reporting double-count)
     const amountUsedForPrimary = thisAmount - Math.max(0, remainingAmount)
-    console.log(`[VALIDATE] amountUsedForPrimary=${amountUsedForPrimary}`)
 
     // Log primary transaction
     const { data: residentProfile } = await adminClient
@@ -250,16 +115,11 @@ export async function POST(request: Request) {
     let excessMsg = ''
     const settledBills = [bill?.period_month ? `${MONTH_NAMES[bill.period_month - 1]} ${bill.period_year}` : '']
 
-    console.log(`[VALIDATE] === CEK LEBIH BAYAR ===`)
-    console.log(`[VALIDATE] remainingAmount=${remainingAmount}, profileId=${profileId}`)
-    console.log(`[VALIDATE] Kondisi masuk arrears: remainingAmount > 0 = ${remainingAmount > 0}, profileId truthy = ${!!profileId}`)
-
     if (remainingAmount > 0 && profileId) {
       // Adjust original payment amount so it only accounts for the primary bill in Laporan
       await adminClient.from('payments').update({ amount: amountUsedForPrimary }).eq('id', paymentId)
       
-      // Query unpaid bills - try BOTH profile_id and user_id
-      const { data: unpaidBills1, error: ubErr1 } = await adminClient
+      const { data: unpaidBills } = await adminClient
         .from('bills')
         .select('id, period_month, period_year, total_amount, water_fee, trash_fee, security_fee, treasury_fee')
         .eq('user_id', profileId)
@@ -267,36 +127,9 @@ export async function POST(request: Request) {
         .order('period_year', { ascending: true })
         .order('period_month', { ascending: true })
 
-      const { data: unpaidBills2, error: ubErr2 } = await adminClient
-        .from('bills')
-        .select('id, period_month, period_year, total_amount, water_fee, trash_fee, security_fee, treasury_fee')
-        .eq('profile_id', profileId)
-        .eq('status', 'UNPAID')
-        .order('period_year', { ascending: true })
-        .order('period_month', { ascending: true })
-
-      console.log(`[VALIDATE] unpaidBills by user_id: ${unpaidBills1?.length || 0} (error: ${ubErr1?.message || 'none'})`)
-      console.log(`[VALIDATE] unpaidBills by profile_id: ${unpaidBills2?.length || 0} (error: ${ubErr2?.message || 'none'})`)
-
-      // Merge and deduplicate
-      const seenIds = new Set<string>()
-      const unpaidBills: any[] = []
-      for (const b of [...(unpaidBills1 || []), ...(unpaidBills2 || [])]) {
-        if (!seenIds.has(b.id)) {
-          seenIds.add(b.id)
-          unpaidBills.push(b)
-        }
-      }
-      // Sort by year then month
-      unpaidBills.sort((a, b) => (a.period_year - b.period_year) || (a.period_month - b.period_month))
-
-      console.log(`[VALIDATE] Total unpaid bills (merged): ${unpaidBills.length}`)
-      unpaidBills.forEach(b => console.log(`[VALIDATE]   - ${b.period_month}/${b.period_year} total=${b.total_amount} id=${b.id}`))
-
-      if (unpaidBills.length > 0) {
+      if (unpaidBills && unpaidBills.length > 0) {
         for (const unpaid of unpaidBills) {
           const unpaidTotal = Number(unpaid.total_amount) || 0
-          console.log(`[VALIDATE] Cek bill ${unpaid.period_month}/${unpaid.period_year}: unpaidTotal=${unpaidTotal}, remainingAmount=${remainingAmount}`)
           if (remainingAmount >= unpaidTotal && unpaidTotal > 0) {
             await adminClient.from('bills').update({ 
               status: 'PAID',
@@ -327,11 +160,9 @@ export async function POST(request: Request) {
 
             remainingAmount -= unpaidTotal
             settledBills.push(`${bMonth} ${unpaid.period_year}`)
-            console.log(`[VALIDATE] ✅ Lunasi ${bMonth} ${unpaid.period_year}, sisa=${remainingAmount}`)
           } else if (remainingAmount > 0) {
             // Partial arrears settlement is possible, but to keep it simple, 
             // if remaining is not enough for the full bill, we just stop.
-            console.log(`[VALIDATE] ⏹ Sisa tidak cukup untuk bill ini, stop.`)
             break
           } else {
             break 
@@ -340,7 +171,6 @@ export async function POST(request: Request) {
       }
 
       if (remainingAmount > 0) {
-        console.log(`[VALIDATE] 💰 Lebih bayar: ${remainingAmount}`)
         await adminClient.from('transactions').insert({
           type: 'INCOME',
           category: 'Lebih Bayar Tagihan',
@@ -351,8 +181,6 @@ export async function POST(request: Request) {
         })
         excessMsg = ` & Lebih bayar Rp ${remainingAmount.toLocaleString('id-ID')} masuk ke kas.`
       }
-    } else {
-      console.log(`[VALIDATE] ❌ TIDAK masuk arrears logic. remainingAmount=${remainingAmount}, profileId=${profileId}`)
     }
 
     // 6. Notify resident via Telegram

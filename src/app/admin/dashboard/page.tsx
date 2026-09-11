@@ -464,6 +464,12 @@ export default async function AdminDashboard({ searchParams }: { searchParams: {
                             <form action="/api/admin/validate" method="POST" className="inline-block">
                               <input type="hidden" name="billId" value={item.billId} />
                               <input type="hidden" name="paymentId" value={item.paymentId} />
+                              <input type="hidden" name="action" value="auto_verify" />
+                              <button type="submit" className="bg-blue-100 text-blue-700 px-3 py-1.5 rounded-md hover:bg-blue-200 transition font-medium text-xs mr-1 shadow-sm" title="Verifikasi otomatis menggunakan AI">🤖 Auto Verify</button>
+                            </form>
+                            <form action="/api/admin/validate" method="POST" className="inline-block">
+                              <input type="hidden" name="billId" value={item.billId} />
+                              <input type="hidden" name="paymentId" value={item.paymentId} />
                               <input type="hidden" name="action" value="approve" />
                               <button type="submit" className="bg-green-100 text-green-700 px-3 py-1.5 rounded-md hover:bg-green-200 transition font-medium text-xs">✅ Terima</button>
                             </form>

@@ -103,11 +103,11 @@ export async function GET(request: Request) {
   const now = new Date()
   const cutoff = new Date(now.getTime() - 15 * 60 * 1000).toISOString()
 
-  // Fetch all bills in PENDING_CONFIRMATION status that were updated > 15 minutes ago
+  // Fetch all bills in PENDING status that were updated > 15 minutes ago
   const { data: pendingBills, error: billsError } = await adminClient
     .from('bills')
     .select('id, profile_id, user_id, total_amount, period_month, period_year, updated_at')
-    .eq('status', 'PENDING_CONFIRMATION')
+    .eq('status', 'PENDING')
     .lt('updated_at', cutoff)
 
   if (billsError) {

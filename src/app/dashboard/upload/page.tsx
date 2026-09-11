@@ -79,6 +79,8 @@ function UploadForm() {
     }
   }
 
+  const [uploaded, setUploaded] = useState(false)
+
   async function handleUpload(e: React.FormEvent) {
     e.preventDefault()
     if (!file || !billId) return
@@ -121,7 +123,9 @@ function UploadForm() {
         throw new Error(data.error || 'Gagal mengupload file')
       }
 
-      router.push('/dashboard')
+      // Mark as uploaded and redirect immediately to dashboard with cache buster
+      setUploaded(true)
+      window.location.href = `/dashboard?refresh=${Date.now()}`
     } catch (err: any) {
       setError(err.message)
       setUploading(false)
@@ -131,7 +135,12 @@ function UploadForm() {
   return (
     <div className="w-full max-w-md bg-white rounded-2xl shadow-xl p-8 border border-slate-100">
       <h1 className="text-2xl font-bold text-slate-800 mb-2">Upload Bukti Transfer</h1>
-      <p className="text-slate-500 mb-6">Silakan masukkan nominal transfer dan upload bukti pembayaran tagihan Anda.</p>
+      <p className="text-slate-500 mb-2">Silakan masukkan nominal transfer dan upload bukti pembayaran tagihan Anda.</p>
+      
+      <div className="bg-blue-50/50 border border-blue-100 p-3 rounded-lg mb-6 flex gap-3 text-sm text-blue-800">
+        <span className="text-lg leading-none">🤖</span>
+        <p><strong>Bukti akan diproses otomatis.</strong> Sistem AI akan memverifikasi pembayaran Anda maksimal dalam 1 jam.</p>
+      </div>
       
       {totalParam && (
         <div className="bg-blue-50 border border-blue-200 text-blue-800 p-4 rounded-lg mb-6 flex justify-between items-center">
@@ -152,7 +161,12 @@ function UploadForm() {
         </div>
       )}
 
-      <form onSubmit={handleUpload} className="space-y-6">
+      {uploaded ? (
+        <div className="bg-green-50 text-green-600 p-4 rounded-lg mb-6 border border-green-100 text-sm">
+          Bukti berhasil diupload. Menunggu verifikasi admin...
+        </div>
+      ) : (
+        <form onSubmit={handleUpload} className="space-y-6">
         <div>
           <label className="block text-sm font-medium text-slate-700 mb-2">Nominal Transfer (Rp)</label>
           <input 
@@ -209,7 +223,6 @@ function UploadForm() {
               </label>
             </div>
             
-            
             <div className={`mt-4 pt-3 border-t flex flex-col gap-1 text-sm ${isSelectedSumValid ? 'text-emerald-600' : 'text-rose-600'}`}>
               <div className="flex justify-between font-bold">
                 <span>Total Dipilih:</span>
@@ -264,23 +277,24 @@ function UploadForm() {
           )}
         </div>
 
-        <div className="flex space-x-3">
-          <button 
-            type="button"
-            onClick={() => router.back()}
-            className="flex-1 py-3 px-4 bg-slate-100 text-slate-700 font-semibold rounded-xl hover:bg-slate-200 transition"
-          >
-            Batal
-          </button>
-          <button 
-            type="submit"
-            disabled={!file || uploading || (isPartial && !isSelectedSumValid)}
-            className="flex-1 py-3 px-4 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {uploading ? 'Mengupload...' : 'Kirim Bukti'}
-          </button>
-        </div>
-      </form>
+          <div className="flex space-x-3">
+            <button 
+              type="button"
+              onClick={() => router.back()}
+              className="flex-1 py-3 px-4 bg-slate-100 text-slate-700 font-semibold rounded-xl hover:bg-slate-200 transition"
+            >
+              Batal
+            </button>
+            <button 
+              type="submit"
+              disabled={!file || uploading || uploaded || (isPartial && !isSelectedSumValid)}
+              className="flex-1 py-3 px-4 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {uploading ? 'Mengupload...' : 'Kirim Bukti'}
+            </button>
+          </div>
+        </form>
+      )}
     </div>
   )
 }
